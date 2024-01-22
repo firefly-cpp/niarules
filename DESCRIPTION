@@ -1,0 +1,10 @@
+Package: niarules
+Type: Package
+Title: Numerical association rule mining in R
+Version: 0.1.0
+Author: Iztok Fister, Jr.
+Maintainer: Iztok Fister, Jr. <iztok@iztok.space>
+Description: TODO
+License: MIT
+Encoding: UTF-8
+LazyData: true
