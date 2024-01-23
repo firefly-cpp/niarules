@@ -66,3 +66,32 @@ print_feature_info <- function(feature_info) {
     cat("\n")
   }
 }
+
+#' Calculate the dimension of the problem based on feature information.
+#'
+#' This function takes a list of feature information and calculates the dimension
+#' based on the type of each feature. Method is inspired by referenced paper.
+#'
+#' @param feature_info A list containing information about each feature.
+#'
+#' @return The calculated dimension based on the feature types.
+#'
+#' @references
+#' Fister, I., Iglesias, A., Galvez, A., Del Ser, J., Osaba, E., & Fister, I. (2018).
+#' Differential evolution for association rule mining using categorical and numerical attributes.
+#' In \emph{Intelligent Data Engineering and Automated Learning--IDEAL 2018: 19th International Conference, Madrid, Spain, November 21--23, 2018, Proceedings, Part I} (pp. 79--88). Springer.
+#'
+#' @export
+problem_dimension <- function(feature_info) {
+  dimension <- length(feature_info)
+
+  for (col in names(feature_info)) {
+    if (feature_info[[col]]$type == "numerical") {
+      dimension <- dimension + 3
+    } else {
+      dimension <- dimension + 2
+    }
+  }
+
+  return(dimension)
+}
