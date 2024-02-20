@@ -46,20 +46,20 @@ build_rule <- function(solution, features) {
         }
 
         if (is_first_rule) {
-          rules <- add_rule(list(), feature, feat_type, border1, border2, "EMPTY")
+          rules <- add_attribute(list(), feature, feat_type, border1, border2, "EMPTY")
           is_first_rule <- FALSE
         } else {
-          rules <- add_rule(rules, feature, feat_type, border1, border2, "EMPTY")
+          rules <- add_attribute(rules, feature, feat_type, border1, border2, "EMPTY")
         }
       } else {
         categories <- features[[feature]]$categories
         selected <- calculate_selected_category(solution[vector_position], length(categories))
 
         if (is_first_rule) {
-          rules <- add_rule(list(), feature, feat_type, 1.00, 1.00, categories[selected])
+          rules <- add_attribute(list(), feature, feat_type, 1.00, 1.00, categories[selected])
           is_first_rule <- FALSE
         } else {
-          rules <- add_rule(rules, feature, feat_type, 1.00, 1.00, categories[selected])
+          rules <- add_attribute(rules, feature, feat_type, 1.00, 1.00, categories[selected])
         }
       }
     } else {
@@ -120,9 +120,9 @@ feature_position <- function(features, feature) {
 #'
 #' @examples
 #' rules <- list()
-#' new_rules <- add_rule(rules, "feature1", "numerical", 0.2, 0.8, "EMPTY")
+#' new_rules <- add_attribute(rules, "feature1", "numerical", 0.2, 0.8, "EMPTY")
 #'
-add_rule <- function(rules, name, type, border1, border2, value) {
+add_attribute <- function(rules, name, type, border1, border2, value) {
   new_rule <- list(
     name = name,
     type = type,
