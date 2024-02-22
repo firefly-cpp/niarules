@@ -1,13 +1,16 @@
-library(niarules)
+library("niarules")
 
-# load dataset
-file_path <- "/home/max/R/Abalone.csv"
+dataset <- "Abalone.csv"
 
 # read dataset
-data <- read_dataset(file_path)
+data <- read_dataset(dataset)
 
-# analyze features
+# get features
 features = extract_feature_info(data)
 
-# print features
-print_feature_info(features)
+dim <- problem_dimension(features)
+
+de <- differential_evolution(D = dim, NP = 10, F = 0.5, CR = 0.9, nfes = 10, features, data)
+
+print (de$arules)
+
