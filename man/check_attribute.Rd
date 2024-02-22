@@ -4,7 +4,7 @@
 \alias{check_attribute}
 \title{Check if the attribute conditions are satisfied for an instance.}
 \usage{
-check_attribute(attribute, instance_row)
+check_attribute(attribute, instance_row, features)
 }
 \arguments{
 \item{attribute}{An attribute with type and name information.}
@@ -13,6 +13,8 @@ check_attribute(attribute, instance_row)
 }
 \value{
 TRUE if conditions are satisfied, FALSE otherwise.
+
+TODO: remove features
 }
 \description{
 This function checks if the attribute conditions specified in the association rule

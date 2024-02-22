@@ -56,12 +56,12 @@ supp_conf <- function(antecedent, consequent, instances, features) {
 
   for (i in 1:nrow(instances)) {
     numant <- sum(sapply(antecedent, function(attribute)
-      check_attribute(attribute, instances[i, ])))
-
+      check_attribute(attribute, instances[i, ], features)))
     if (numant == length(antecedent)) {
       ant_final <- ant_final + 1
+
       numcon <- sum(sapply(consequent, function(attribute)
-        check_attribute(attribute, instances[i, ])))
+        check_attribute(attribute, instances[i, ], features)))
 
       if (numcon == length(consequent)) {
         con_final <- con_final + 1
@@ -85,14 +85,14 @@ supp_conf <- function(antecedent, consequent, instances, features) {
 #'
 #' @return TRUE if conditions are satisfied, FALSE otherwise.
 #'
+#' TODO: remove features
 #' @export
-check_attribute <- function(attribute, instance_row) {
+check_attribute <- function(attribute, instance_row, features) {
   if (attribute$type != "categorical") {
-    feature_bounds <- feature_borders(features, attribute$name)
-    feature_min <- feature_bounds$feature_min
-    feature_max <- feature_bounds$feature_max
+    feature_min <- attribute$border1
+    feature_max <- attribute$border2
     return(instance_row[attribute$name] >= feature_min &&
-             instance_row[attribute$name] < feature_max)
+             instance_row[attribute$name] <= feature_max)
   } else {
     return(attribute$value == instance_row[attribute$name])
   }
