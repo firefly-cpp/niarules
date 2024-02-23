@@ -10,7 +10,6 @@ features = extract_feature_info(data)
 
 dim <- problem_dimension(features)
 
-de <- differential_evolution(D = dim, NP = 10, F = 0.5, CR = 0.9, nfes = 10, features, data)
+de <- differential_evolution(D = dim, NP = 30, F = 0.5, CR = 0.9, nfes = 1000, features, data)
 
-print (de$arules)
-
+print_association_rules(de$arules)
