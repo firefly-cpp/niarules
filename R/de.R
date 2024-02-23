@@ -29,9 +29,12 @@ differential_evolution <- function(D = 10, NP = 10, F = 0.5, CR = 0.9, nfes = 10
   arule <- lapply(results, function(result) result$rules)
 
   # Save identified rule
-  if (length(arule) > 0)
+  # Remove empty lists
+  filter_rules <- arule[sapply(arule, length) > 0]
+
+  if (length(filter_rules) > 0)
   {
-   arules <- c(arules, arule)
+   arules <- c(arules, filter_rules)
   }
 
   # Start counting function evaluations
@@ -56,7 +59,14 @@ differential_evolution <- function(D = 10, NP = 10, F = 0.5, CR = 0.9, nfes = 10
                              population[i, ])
 
       # Evaluate the objective function
-      trial_fitness <- evaluate(trial_vector, features, data)
+      fit <- evaluate(trial_vector, features, data)
+      trial_fitness <- fit$fitness
+
+      # save rule if fitness greater than 0
+      if (trial_fitness > 0.0)
+      {
+       arules <- c(arules, fit$rule)
+      }
 
       # Increment the number of function evaluations
       num_evaluations <- num_evaluations + 1

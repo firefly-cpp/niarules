@@ -18,6 +18,9 @@ evaluate <- function(solution, features, instances) {
   # Build a rule from the candidate solution
   rule <- build_rule(solution, features)
 
+  # Initialize fitness
+  fitness <- 0.0
+
   # Calculate cut point
   cut <- cut_point(cut_value, length(rule))
 
@@ -28,11 +31,14 @@ evaluate <- function(solution, features, instances) {
   if (length(antecedent) > 0 && length(consequent) > 0) {
     support_conf <- supp_conf(antecedent, consequent, instances, features)
     fitness <- calculate_fitness(support_conf$supp, support_conf$conf)
-
   }
 
-  # save association rule
-  rule <- add_association_rule(list(), antecedent, consequent, support_conf$supp, support_conf$conf, fitness)
+  rule <- list()
+  # save association rule if fitness is greater than 0
+  if (fitness > 0.0)
+  {
+    rule <- add_association_rule(rule, antecedent, consequent, support_conf$supp, support_conf$conf, fitness)
+  }
 
 return(list(fitness=fitness, rules=rule))
 }
