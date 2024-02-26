@@ -12,21 +12,24 @@
 #' @export
 evaluate <- function(solution, features, instances) {
   # Obtain cut point value and remove this value from a vector of solutions
-  cut_value <- tail(solution, 1)
+  # TODO:: abs
+  cut_value <- abs(tail(solution, 1))
   solution <- head(solution, -1)
 
   # Build a rule from the candidate solution
   rule <- build_rule(solution, features)
 
   # Initialize fitness
-  fitness <- 0.0
+  fitness <- -1.0
 
-  # Calculate cut point
-  cut <- cut_point(cut_value, length(rule))
+  if (length(rule) > 1)
+  {
+    # Calculate cut point
+    cut <- cut_point(cut_value, length(rule))
 
-  # Get antecedent and consequent of the rule
-  antecedent <- rule[1:cut]
-  consequent <- rule[(cut + 1):length(rule)]
+    # Get antecedent and consequent of the rule
+    antecedent <- rule[1:cut]
+    consequent <- rule[(cut + 1):length(rule)]
 
   if (length(antecedent) > 0 && length(consequent) > 0) {
     support_conf <- supp_conf(antecedent, consequent, instances, features)
@@ -38,6 +41,7 @@ evaluate <- function(solution, features, instances) {
   if (fitness > 0.0)
   {
     rule <- add_association_rule(rule, antecedent, consequent, support_conf$supp, support_conf$conf, fitness)
+  }
   }
 
 return(list(fitness=fitness, rules=rule))
@@ -161,6 +165,7 @@ cut_point <- function(sol, num_attr) {
   cut <- trunc(sol * num_attr)
   cut <- ifelse(cut == 0, 1, cut)
   cut <- ifelse(cut > (num_attr - 1), num_attr - 2, cut)
+
   return(cut)
 }
 

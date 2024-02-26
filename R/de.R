@@ -58,6 +58,8 @@ differential_evolution <- function(D = 10, NP = 10, F = 0.5, CR = 0.9, nfes = 10
       trial_vector <- ifelse(crossover_mask, mutant_vector,
                              population[i, ])
 
+      # check for bounds (should be between 0 and 1)
+      trial_vector <- fixBorders(trial_vector)
       # Evaluate the objective function
       fit <- evaluate(trial_vector, features, data)
       trial_fitness <- fit$fitness
@@ -102,3 +104,26 @@ differential_evolution <- function(D = 10, NP = 10, F = 0.5, CR = 0.9, nfes = 10
   return(list("best_solution" = best_solution, "best_fitness" =
                 best_fitness, "num_evaluations" = num_evaluations, "arules" = arules))
 }
+
+#' Fix Borders of a Numeric Vector
+#'
+#' This function takes a numeric vector as input and ensures that all values
+#' greater than 1.0 are set to 1.0, and all values less than 0.0 are set to 0.0.
+#'
+#' @param vector A numeric vector to be processed.
+#'
+#' @return A numeric vector with borders fixed. Values greater than 1.0 are
+#'   replaced with 1.0, and values less than 0.0 are replaced with 0.0.
+#'
+#' @examples
+#' original_vector <- c(1.19007417, 0.33135271, -0.5, 1.5, 0.0)
+#' fixed_vector <- fixBorders(original_vector)
+#' print(fixed_vector)
+#'
+#' @export
+fixBorders <- function(vector) {
+  vector[vector > 1.0] <- 1.0
+  vector[vector < 0.0] <- 0.0
+  return(vector)
+}
+

@@ -151,11 +151,7 @@ calculate_border <- function(feature_info, value) {
   lower_bound <- feature_info$lower_bound
   upper_bound <- feature_info$upper_bound
   result <- value * (upper_bound - lower_bound) + lower_bound
-
-  if (feature_info$type == "numerical") {
-    result <- round(result)
-  }
-
+   #TODO check
   return(result)
 }
 
@@ -173,6 +169,7 @@ calculate_border <- function(feature_info, value) {
 #' selected_category <- calculate_selected_category(0.3, 5)
 #'
 calculate_selected_category <- function(value, num_categories) {
+  # TODO (fix borders in EVOLUTIONARY PROCESS)
   selected <- trunc(round(value * num_categories))
   return(ifelse(selected == 0, 1, selected))
 }
