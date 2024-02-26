@@ -12,11 +12,12 @@ data <- read_dataset(dataset)
 features = extract_feature_info(data)
 
 antecedents <- list()
-antecedents <- add_rule(antecedents, "Feat1", "categorical", 0.2, 0.8, "A")
+antecedents <- add_attribute(antecedents, "Feat1", "categorical", 0.2, 0.8, "A")
 
 consequence <- list()
-consequence <- add_rule(consequence, "Feat2", "numerical", 1, 1, "EMPTY")
+consequence <- add_attribute(consequence, "Feat2", "numerical", 1, 1, "EMPTY")
 
-# TODO
 metrics <- supp_conf(antecedents, consequence, data, features)
+all.equal(metrics$supp, 0.1428571)
+expect_equal(metrics$conf, 0.25)
 

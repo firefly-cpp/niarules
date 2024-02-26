@@ -7,16 +7,6 @@
 #' @return A rule.
 #' @export
 #'
-#' @examples
-#' solution <- c(0.2, 0.8, 0.5)
-#' features <- list(
-#'   feature1 = list(type = "numerical", lower_bound = 0, upper_bound = 1),
-#'   feature2 = list(type = "categorical", categories = c("A", "B", "C")),
-#'   feature3 = list(type = "numerical", lower_bound = 0, upper_bound = 1)
-#' )
-#' rules <- build_rule(solution, features)
-#'
-#'
 build_rule <- function(solution, features) {
   is_first_rule <- TRUE
   rules <- list()

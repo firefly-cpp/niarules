@@ -17,14 +17,3 @@ A rule.
 \description{
 This function takes a candidate solution vector and a features list and builds rule.
 }
-\examples{
-solution <- c(0.2, 0.8, 0.5)
-features <- list(
-  feature1 = list(type = "numerical", lower_bound = 0, upper_bound = 1),
-  feature2 = list(type = "categorical", categories = c("A", "B", "C")),
-  feature3 = list(type = "numerical", lower_bound = 0, upper_bound = 1)
-)
-rules <- build_rule(solution, features)
-
-
-}
