@@ -18,3 +18,7 @@ expect_equal(features[[4]]$lower_bound, 0)
 expect_equal(features[[4]]$upper_bound, 1.13)
 expect_equal(names(features)[1], "Sex")
 expect_equal(names(features)[5], "Whole.weight")
+
+# dimension of the problem
+dim <- problem_dimension(features)
+expect_equal(dim, 35)
