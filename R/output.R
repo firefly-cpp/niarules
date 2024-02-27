@@ -9,6 +9,11 @@
 #'
 #' @export
 print_association_rules <- function(rules) {
+
+  # sort rules by fitness
+
+  rules <- rules[order(sapply(rules, function(x) -x$fitness))]
+
   cat("Association Rules:\n")
 
   for (i in seq_along(rules)) {

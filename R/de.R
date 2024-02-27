@@ -101,6 +101,9 @@ differential_evolution <- function(D = 10, NP = 10, F = 0.5, CR = 0.9, nfes = 10
   best_solution <- population[best_index, ]
   best_fitness <- fitness_values[best_index]
 
+  # Remove empty list in the nested list
+  arules <- arules[sapply(arules, length) > 1]
+
   return(list("best_solution" = best_solution, "best_fitness" =
                 best_fitness, "num_evaluations" = num_evaluations, "arules" = arules))
 }
