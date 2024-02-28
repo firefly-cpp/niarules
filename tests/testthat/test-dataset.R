@@ -21,4 +21,4 @@ expect_equal(names(features)[5], "Whole.weight")
 
 # dimension of the problem
 dim <- problem_dimension(features)
-expect_equal(dim, 35)
+expect_equal(dim, 36)

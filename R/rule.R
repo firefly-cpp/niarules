@@ -20,14 +20,16 @@ build_rule <- function(solution, features) {
     feat_names <- names(features)
     feature <- feat_names[i]
     vector_position <- feature_position(features, feature)
-    threshold_position <- vector_position + 1
+    # TODO:: check if not categorical
+    feat_type <- features[[feature]]$type
+    threshold_position <- vector_position + ifelse(feat_type != "categorical", 2, 1)
 
+    # TODO:: several options
     if (solution[vector_position] > solution[threshold_position]) {
-      feat_type <- features[[feature]]$type
 
       if (feat_type != "categorical") {
         border1 <- calculate_border(features[[feature]], solution[vector_position])
-        border2 <- calculate_border(features[[feature]], solution[threshold_position])
+        border2 <- calculate_border(features[[feature]], solution[vector_position+1])
 
         if (border1 > border2) {
           temp <- border1
@@ -41,7 +43,8 @@ build_rule <- function(solution, features) {
         } else {
           rules <- add_attribute(rules, feature, feat_type, border1, border2, "EMPTY")
         }
-      } else {
+      } else
+      {
         categories <- features[[feature]]$categories
         selected <- calculate_selected_category(solution[vector_position], length(categories))
 
@@ -91,7 +94,6 @@ feature_position <- function(features, feature) {
       break
     }
   }
-
   return(position)
 }
 

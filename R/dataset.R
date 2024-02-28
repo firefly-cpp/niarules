@@ -83,8 +83,8 @@ print_feature_info <- function(feature_info) {
 #'
 #' @export
 problem_dimension <- function(feature_info) {
-  dimension <- length(feature_info)
-
+  # permutation + 1 for cut point
+  dimension <- length(feature_info) + 1
   for (col in names(feature_info)) {
     if (feature_info[[col]]$type == "numerical") {
       dimension <- dimension + 3
