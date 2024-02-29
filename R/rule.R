@@ -23,7 +23,6 @@ build_rule <- function(solution, features) {
     # TODO:: check if not categorical
     feat_type <- features[[feature]]$type
     threshold_position <- vector_position + ifelse(feat_type != "categorical", 2, 1)
-
     # TODO:: several options
     if (solution[vector_position] > solution[threshold_position]) {
 
@@ -83,16 +82,15 @@ build_rule <- function(solution, features) {
 #' position <- feature_position(features, "feature2")
 #'
 feature_position <- function(features, feature) {
-  position <- 0
+  position <- 1
   feat_names <- names(features)
 
   for (feat_name in feat_names) {
     dtype <- features[[feat_name]]$type
-    position <- ifelse(dtype == "categorical", position + 1, position + 2)
-
     if (feat_name == feature) {
       break
     }
+    position <- ifelse(dtype == "categorical", position + 2, position + 3)
   }
   return(position)
 }
@@ -143,7 +141,7 @@ calculate_border <- function(feature_info, value) {
   lower_bound <- feature_info$lower_bound
   upper_bound <- feature_info$upper_bound
   result <- value * (upper_bound - lower_bound) + lower_bound
-   #TODO check
+  #TODO check
   return(result)
 }
 
