@@ -1,6 +1,9 @@
 library(niarules)
 library(testthat)
 
+# Set a tolerance level
+tolerance <- 1e-4
+
 dataset <- "datasets/Abalone.csv"
 data <- read_dataset(dataset)
 features <- extract_feature_info(data)
@@ -87,4 +90,4 @@ con <- list()
 con <- add_attribute(con, "Rings", "numerical", 16.61166, 19.50925, "EMPTY")
 con <- add_attribute(con, "Viscera.weight", "numerical", 0.04225521, 0.4458304, "EMPTY")
 
-all.equal(consequent, con)
+expect_equal(consequent, con, tolerance)
