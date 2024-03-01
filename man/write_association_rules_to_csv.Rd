@@ -14,20 +14,3 @@ write_association_rules_to_csv(rules, file_path)
 \description{
 This function writes association rules to a CSV file.
 }
-\examples{
-\donttest{arules <- list(list(
-  list(
-    antecedent = list(
-      list(name = "Diameter", type = "numerical", border1 = 0, border2 = 1, value = "EMPTY")
-    ),
-    consequence = list(
-      list(name = "Height", type = "numerical", border1 = 0, border2 = 1, value = "EMPTY")
-    ),
-    support = 0.9997606,
-    confidence = 0.9997606,
-    fitness = 1.999521
-  )
-))
-write_association_rules_to_csv(arules, "association_rules_output.csv")}
-
-}

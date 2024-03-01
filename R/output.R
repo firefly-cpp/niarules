@@ -70,22 +70,6 @@ print_rule_parts <- function(parts) {
 #' @param rules A list of association rules.
 #' @param file_path The file path for the CSV output.
 #'
-#' @examples
-#' \donttest{arules <- list(list(
-#'   list(
-#'     antecedent = list(
-#'       list(name = "Diameter", type = "numerical", border1 = 0, border2 = 1, value = "EMPTY")
-#'     ),
-#'     consequence = list(
-#'       list(name = "Height", type = "numerical", border1 = 0, border2 = 1, value = "EMPTY")
-#'     ),
-#'     support = 0.9997606,
-#'     confidence = 0.9997606,
-#'     fitness = 1.999521
-#'   )
-#' ))
-#' write_association_rules_to_csv(arules, "association_rules_output.csv")}
-#'
 #' @export
 write_association_rules_to_csv <- function(rules, file_path) {
   # Extracting relevant information from the nested structure
