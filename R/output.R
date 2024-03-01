@@ -71,7 +71,7 @@ print_rule_parts <- function(parts) {
 #' @param file_path The file path for the CSV output.
 #'
 #' @examples
-#' arules <- list(list(
+#' \donttest{arules <- list(list(
 #'   list(
 #'     antecedent = list(
 #'       list(name = "Diameter", type = "numerical", border1 = 0, border2 = 1, value = "EMPTY")
@@ -84,7 +84,7 @@ print_rule_parts <- function(parts) {
 #'     fitness = 1.999521
 #'   )
 #' ))
-#' write_association_rules_to_csv(arules, "association_rules_output.csv")
+#' write_association_rules_to_csv(arules, "association_rules_output.csv")}
 #'
 #' @export
 write_association_rules_to_csv <- function(rules, file_path) {
