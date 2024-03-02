@@ -1,28 +1,42 @@
 # niarules
 
-# About
+[![R build status](https://github.com/firefly-cpp/niarules/workflows/R-CMD-check/badge.svg)](https://github.com/firefly-cpp/niarules/actions?workflow=R-CMD-check)
+
+# About 📋
 
 niarules is an R framework designed for mining numerical association rules through the utilization of nature-inspired algorithms for optimization. Drawing inspiration from both the [NiaARM Python package](https://github.com/firefly-cpp/NiaARM) and [NiaARM.jl package](https://github.com/firefly-cpp/NiaARM.jl), this repository introduces the capability to perform numerical association rule mining in the R programming language.
 
-The current version of NiaARM.jl included in this framework offers seamless functionality for automatic dataset loading and preprocessing. It facilitates the exploration of numerical association rules through the application of nature-inspired algorithms, ultimately presenting a comprehensive output that includes identified association rules. Aligning with the principles of the original NiaARM implementation, the process of numerical association rule mining is conceptualized as an optimization problem, and the solution is achieved using population-based nature-inspired algorithms integrated within this framework.
+The current version of niarules included in this framework offers seamless functionality for automatic dataset loading and preprocessing. It facilitates the exploration of numerical association rules through the application of nature-inspired algorithms, ultimately presenting a comprehensive output that includes identified association rules. Aligning with the principles of the original NiaARM implementation, the process of numerical association rule mining is conceptualized as an optimization problem, and the solution is achieved using population-based nature-inspired algorithms integrated within this framework.
 
-## Detailed insights
+## Detailed insights ✨
 The current version includes (but is not limited to) the following functions:
 
-- loading datasets in CSV format,
-- preprocessing of data,
-- searching for association rules,
-- providing an output of mined association rules,
-- generating statistics about mined association rules,
-- providing the implementation of several state-of-the-art nature-inspired algorithms for optimization.
+- loading datasets in CSV format 📂
+- preprocessing of data 🔄
+- searching for association rules 🔍
+- providing an output of mined association rules 📝
+- generating statistics about mined association rules 📊
+- providing the implementation of several state-of-the-art nature-inspired algorithms for optimization 🧬
 
-## Installation
+## Installation 📦
 
-## Usage
+## Usage 🚀
 
 ### Basic run example
 
-## Reference papers:
+```R
+library("niarules")
+dataset <- "Abalone.csv"
+# read dataset
+data <- read_dataset(dataset)
+# get features
+features = extract_feature_info(data)
+dim <- problem_dimension(features)
+# Use Differential Evolution algorithm for discovering association rules
+de <- differential_evolution(D = dim, NP = 30, F = 0.5, CR = 0.9, nfes = 1000, features, data)
+print_association_rules(de$arules)
+```
+## Reference papers 📄
 
 Ideas are based on the following research papers:
 
@@ -33,6 +47,14 @@ Ideas are based on the following research papers:
 [3] I. Fister Jr., V. Podgorelec, I. Fister. [Improved Nature-Inspired Algorithms for Numeric Association Rule Mining](https://link.springer.com/chapter/10.1007/978-3-030-68154-8_19). In: Vasant P., Zelinka I., Weber GW. (eds) Intelligent Computing and Optimization. ICO 2020. Advances in Intelligent Systems and Computing, vol 1324. Springer, Cham.
 
 [4] I. Fister Jr., I. Fister [A brief overview of swarm intelligence-based algorithms for numerical association rule mining](https://arxiv.org/abs/2010.15524). arXiv preprint arXiv:2010.15524 (2020).
+
+## See also
+
+[1] [NiaARM.jl: Numerical Association Rule Mining in Julia](https://github.com/firefly-cpp/NiaARM.jl)
+
+[2] [NiaARM: Numerical Association Rule Mining in Python](https://github.com/firefly-cpp/NiaARM)
+
+[3] [arm-preprocessing: Implementation of several preprocessing techniques for Association Rule Mining (ARM)](https://github.com/firefly-cpp/arm-preprocessing)
 
 ## License
 
