@@ -5,7 +5,7 @@ Version: 0.1.0
 Author: Iztok Fister, Jr. <iztok@iztok.space> [orcid:https://orcid.org/0000-0002-6418-1272]
 Maintainer: Iztok Fister, Jr. <iztok@iztok.space>
 Classification/ACM: G.4, H.2.8
-Description: niarules is an R framework designed for mining numerical association rules through the utilization of nature-inspired algorithms for optimization. Drawing inspiration from both the NiaARM Python package and NiaARM.jl package, this repository introduces the capability to perform numerical association rule mining in the R programming language.
+Description: This package is an R framework designed for mining numerical association rules through the utilization of nature-inspired algorithms for optimization. Drawing inspiration from both the NiaARM Python package and NiaARM.jl package, this repository introduces the capability to perform numerical association rule mining in the R programming language.
 URL: https://github.com/firefly-cpp/niarules
 BugReports: https://github.com/firefly-cpp/niarules/issues
 Depends: R (>= 4.0.0)
