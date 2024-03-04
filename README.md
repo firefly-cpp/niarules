@@ -1,4 +1,10 @@
-# niarules
+<p align="center">
+  <img alt="logo" width="300" src=".github/images/logo.png">
+</p>
+
+---
+
+# niarules - Numerical Association Rule Mining in R
 
 [![R build status](https://github.com/firefly-cpp/niarules/workflows/R-CMD-check/badge.svg)](https://github.com/firefly-cpp/niarules/actions?workflow=R-CMD-check)
 
