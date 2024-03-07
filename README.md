@@ -4,7 +4,7 @@
 
 ---
 
-# niarules - Numerical Association Rule Mining in R
+# niarules - Numerical Association Rule Mining using Population-Based Nature-Inspired Algorithms
 
 [![R build status](https://github.com/firefly-cpp/niarules/workflows/R-CMD-check/badge.svg)](https://github.com/firefly-cpp/niarules/actions?workflow=R-CMD-check)
 

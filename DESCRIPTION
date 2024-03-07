@@ -1,6 +1,6 @@
 Package: niarules
 Type: Package
-Title: Numerical Association Rule Mining Using Nature-Inspired Algorithms in R
+Title: Numerical Association Rule Mining using Population-Based Nature-Inspired Algorithms
 Version: 0.1.0
 Author: Iztok Fister, Jr. <iztok@iztok.space> [orcid:https://orcid.org/0000-0002-6418-1272]
 Maintainer: "Iztok Fister, Jr." <iztok@iztok.space>
