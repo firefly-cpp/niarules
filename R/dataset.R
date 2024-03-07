@@ -5,9 +5,7 @@
 #' @param dataset_path The path to the CSV file.
 #' @return A data frame representing the dataset.
 #' @examples
-#' \dontrun{
-#' read_dataset("path/to/your/dataset.csv")
-#' }
+#' read_dataset("Abalone.csv")
 #'
 #' @export
 read_dataset <- function(dataset_path) {
@@ -53,17 +51,17 @@ print_feature_info <- function(feature_info) {
   columns <- names(feature_info)
 
   for (col in columns) {
-    cat("Feature:", col, "\n")
-    cat("  Type:", feature_info[[col]]$type, "\n")
+    message("Feature:", col)
+    message("  Type:", feature_info[[col]]$type)
 
     if (feature_info[[col]]$type == "numerical") {
-      cat("  Lower Bound:", feature_info[[col]]$lower_bound, "\n")
-      cat("  Upper Bound:", feature_info[[col]]$upper_bound, "\n")
+      message("  Lower Bound:", feature_info[[col]]$lower_bound)
+      message("  Upper Bound:", feature_info[[col]]$upper_bound)
     } else {
-      cat("  Categories:", toString(feature_info[[col]]$categories), "\n")
+      message("  Categories:", toString(feature_info[[col]]$categories))
     }
 
-    cat("\n")
+    message("")
   }
 }
 

@@ -7,11 +7,9 @@
 #' @return A vector of random solutions between 0 and 1.
 #'
 #' @examples
-#' \dontrun{
 #' candidate_len <- 10
 #' random_solutions <- rs(candidate_len)
 #' print(random_solutions)
-#' }
 #'
 #' @export
 rs <- function(candidate_len) {

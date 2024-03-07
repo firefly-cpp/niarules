@@ -14,24 +14,24 @@ print_association_rules <- function(rules) {
 
   rules <- rules[order(sapply(rules, function(x) -x$fitness))]
 
-  cat("Association Rules:\n")
+  message("Association Rules:")
 
   for (i in seq_along(rules)) {
     rule <- rules[[i]]
 
-    cat("\nRule", i, ":\n")
+    message("\nRule", i, ":")
 
-    cat("Antecedent:")
+    message("Antecedent:")
     print_rule_parts(rule$antecedent)
 
-    cat("\nConsequence:")
+    message("\nConsequence:")
     print_rule_parts(rule$consequence)
 
-    cat("\nSupport:", rule$support, "\n")
-    cat("Confidence:", rule$confidence, "\n")
-    cat("Fitness:", rule$fitness, "\n")
+    message("\nSupport:", rule$support)
+    message("Confidence:", rule$confidence)
+    message("Fitness:", rule$fitness)
 
-    cat("----------------------\n")
+    message("----------------------")
   }
 }
 
@@ -51,13 +51,13 @@ print_rule_parts <- function(parts) {
     part <- parts[[i]]
 
     if (part$type != "categorical") {
-      cat(part$name, "(", part$border1, ",", part$border2, ")")
+      message(part$name, "(", part$border1, ",", part$border2, ")")
     } else {
-      cat(part$name, "(", part$value, ")")
+      message(part$name, "(", part$value, ")")
     }
 
     if (i < len) {
-      cat(" & ")
+      message(" & ")
     }
   }
 }
@@ -90,6 +90,5 @@ write_association_rules_to_csv <- function(rules, file_path) {
   # Write to CSV
   write.csv(rules_df, file = file_path, row.names = FALSE)
 
-  cat("Numerical Association rules successfully written to:", file_path, "\n")
+  message("Numerical Association rules successfully written to:", file_path)
 }
-

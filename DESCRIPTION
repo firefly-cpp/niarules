@@ -8,7 +8,7 @@ Authors@R: c(
 	comment = c(ORCID = "0000-0002-6418-1272")))
 Classification/ACM: G.4, H.2.8
 Description: Framework is devoted to mining numerical association rules through the utilization of nature-inspired algorithms for optimization. Drawing inspiration from the NiaARM Python and the NiaARM Julia packages, this repository introduces the capability to perform numerical association rule mining in the R programming language.
-Fister Jr., Iglesias, Gálvez, Del Ser, Osaba and Fister (2018) <doi:10.1007/978-3-030-03493-1_9>.
+Fister Jr., Iglesias, Galvez, Del Ser, Osaba and Fister (2018) <doi:10.1007/978-3-030-03493-1_9>.
 URL: https://github.com/firefly-cpp/niarules
 BugReports: https://github.com/firefly-cpp/niarules/issues
 Depends: R (>= 4.0.0)
