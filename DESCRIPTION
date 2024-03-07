@@ -2,8 +2,10 @@ Package: niarules
 Type: Package
 Title: Numerical Association Rule Mining using Population-Based Nature-Inspired Algorithms
 Version: 0.1.0
-Author: Iztok Fister, Jr. <iztok@iztok.space> [orcid:https://orcid.org/0000-0002-6418-1272]
-Maintainer: "Iztok Fister, Jr." <iztok@iztok.space>
+Authors@R: c(
+    person("Iztok Jr.", "Fister", role = c("aut", "cre", "cph"),
+	email = "iztok@iztok.space",
+	comment = c(ORCID = "0000-0002-6418-1272")))
 Classification/ACM: G.4, H.2.8
 Description: Framework is devoted to mining numerical association rules through the utilization of nature-inspired algorithms for optimization. Drawing inspiration from the NiaARM Python and the NiaARM Julia packages, this repository introduces the capability to perform numerical association rule mining in the R programming language.
 URL: https://github.com/firefly-cpp/niarules
