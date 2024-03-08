@@ -16,8 +16,6 @@ A data frame representing the dataset.
 This function reads a CSV file and returns the dataset as a data frame.
 }
 \examples{
-\dontrun{
-read_dataset("path/to/your/dataset.csv")
-}
+read_dataset("Abalone.csv")
 
 }

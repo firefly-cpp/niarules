@@ -40,13 +40,24 @@ extract_feature_info <- function(data) {
   return(feature_info)
 }
 
-# Function to print feature information
 #' Print feature information extracted from a dataset.
 #'
 #' This function prints the information extracted about each feature.
 #'
 #' @param feature_info The list containing information about each feature.
 #' @export
+#'
+#' @return
+#' A message is printed to the console for each feature, providing information
+#' about the feature's type, and additional details such as lower and upper bounds
+#' for numerical features or categories for categorical features.
+#' No explicit return value is generated.
+#'
+#' @examples
+#' \donttest{
+#' # Example usage:
+#' print_feature_info(my_feature_info)
+#' }
 print_feature_info <- function(feature_info) {
   columns <- names(feature_info)
 
@@ -64,6 +75,7 @@ print_feature_info <- function(feature_info) {
     message("")
   }
 }
+
 
 #' Calculate the dimension of the problem based on feature information.
 #'

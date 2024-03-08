@@ -11,6 +11,17 @@ write_association_rules_to_csv(rules, file_path)
 
 \item{file_path}{The file path for the CSV output.}
 }
+\value{
+No explicit return value. The function writes association rules to a CSV file
+specified by the `file_path` parameter. A message is printed to the console
+indicating the successful completion of the writing process.
+}
 \description{
 This function writes association rules to a CSV file.
+}
+\examples{
+\donttest{
+# Example usage:
+write_association_rules_to_csv(my_rules, "output_rules.csv")
+}
 }

@@ -71,6 +71,17 @@ print_rule_parts <- function(parts) {
 #' @param file_path The file path for the CSV output.
 #'
 #' @export
+#'
+#' @return
+#' No explicit return value. The function writes association rules to a CSV file
+#' specified by the `file_path` parameter. A message is printed to the console
+#' indicating the successful completion of the writing process.
+#'
+#' @examples
+#' \donttest{
+#' # Example usage:
+#' write_association_rules_to_csv(my_rules, "output_rules.csv")
+#' }
 write_association_rules_to_csv <- function(rules, file_path) {
   # Extracting relevant information from the nested structure
   rules_data <- lapply(rules, function(rule) {
@@ -90,5 +101,6 @@ write_association_rules_to_csv <- function(rules, file_path) {
   # Write to CSV
   write.csv(rules_df, file = file_path, row.names = FALSE)
 
-  message("Numerical Association rules successfully written to:", file_path)
+  message("Association rules successfully written to:", file_path)
 }
+

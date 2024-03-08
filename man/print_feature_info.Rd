@@ -9,6 +9,18 @@ print_feature_info(feature_info)
 \arguments{
 \item{feature_info}{The list containing information about each feature.}
 }
+\value{
+A message is printed to the console for each feature, providing information
+about the feature's type, and additional details such as lower and upper bounds
+for numerical features or categories for categorical features.
+No explicit return value is generated.
+}
 \description{
 This function prints the information extracted about each feature.
+}
+\examples{
+\donttest{
+# Example usage:
+print_feature_info(my_feature_info)
+}
 }

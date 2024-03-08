@@ -16,10 +16,8 @@ A vector of random solutions between 0 and 1.
 This function generates a vector of random solutions for a specified length.
 }
 \examples{
-\dontrun{
 candidate_len <- 10
 random_solutions <- rs(candidate_len)
 print(random_solutions)
-}
 
 }
