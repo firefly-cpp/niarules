@@ -77,11 +77,6 @@ print_rule_parts <- function(parts) {
 #' specified by the `file_path` parameter. A message is printed to the console
 #' indicating the successful completion of the writing process.
 #'
-#' @examples
-#' \donttest{
-#' # Example usage:
-#' write_association_rules_to_csv(my_rules, "output_rules.csv")
-#' }
 write_association_rules_to_csv <- function(rules, file_path) {
   # Extracting relevant information from the nested structure
   rules_data <- lapply(rules, function(rule) {

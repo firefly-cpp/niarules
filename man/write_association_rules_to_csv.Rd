@@ -19,9 +19,3 @@ indicating the successful completion of the writing process.
 \description{
 This function writes association rules to a CSV file.
 }
-\examples{
-\donttest{
-# Example usage:
-write_association_rules_to_csv(my_rules, "output_rules.csv")
-}
-}

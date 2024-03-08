@@ -18,9 +18,3 @@ No explicit return value is generated.
 \description{
 This function prints the information extracted about each feature.
 }
-\examples{
-\donttest{
-# Example usage:
-print_feature_info(my_feature_info)
-}
-}

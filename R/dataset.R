@@ -53,11 +53,6 @@ extract_feature_info <- function(data) {
 #' for numerical features or categories for categorical features.
 #' No explicit return value is generated.
 #'
-#' @examples
-#' \donttest{
-#' # Example usage:
-#' print_feature_info(my_feature_info)
-#' }
 print_feature_info <- function(feature_info) {
   columns <- names(feature_info)
 
