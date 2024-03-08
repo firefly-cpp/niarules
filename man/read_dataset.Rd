@@ -15,7 +15,3 @@ A data frame representing the dataset.
 \description{
 This function reads a CSV file and returns the dataset as a data frame.
 }
-\examples{
-read_dataset("Abalone.csv")
-
-}
