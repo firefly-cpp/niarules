@@ -4,8 +4,6 @@
 #'
 #' @param dataset_path The path to the CSV file.
 #' @return A data frame representing the dataset.
-#' @examples
-#' read_dataset("Abalone.csv")
 #'
 #' @export
 read_dataset <- function(dataset_path) {
