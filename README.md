@@ -7,6 +7,7 @@
 # niarules - Numerical Association Rule Mining using Population-Based Nature-Inspired Algorithms
 
 [![R build status](https://github.com/firefly-cpp/niarules/workflows/R-CMD-check/badge.svg)](https://github.com/firefly-cpp/niarules/actions?workflow=R-CMD-check)
+[![CRAN version](http://www.r-pkg.org/badges/version/niarules)](https://CRAN.R-project.org/package=niarules)
 
 # About 📋
 
@@ -25,6 +26,12 @@ The current version includes (but is not limited to) the following functions:
 - providing the implementation of several state-of-the-art nature-inspired algorithms for optimization 🧬
 
 ## Installation 📦
+
+Install CRAN release version:
+
+```R
+install.packages("niarules")
+```
 
 ## Usage 🚀
 
