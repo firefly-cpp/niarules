@@ -2,20 +2,35 @@
   <img alt="logo" width="300" src=".github/logos/niarules.png">
 </p>
 
----
+<h1 align="center">
+niarules - Numerical Association Rule Mining using Population-Based Nature-Inspired Algorithms
+</h1>
 
-# niarules - Numerical Association Rule Mining using Population-Based Nature-Inspired Algorithms
+<p align="center">
+  <a href="https://github.com/firefly-cpp/niarules/actions?workflow=R-CMD-check">
+    <img alt="R build status" src="https://github.com/firefly-cpp/niarules/workflows/R-CMD-check/badge.svg">
+  </a>
+  <a href="https://CRAN.R-project.org/package=niarules">
+    <img alt="CRAN version" src="https://www.r-pkg.org/badges/version/niarules">
+  </a>
+</p>
 
-[![R build status](https://github.com/firefly-cpp/niarules/workflows/R-CMD-check/badge.svg)](https://github.com/firefly-cpp/niarules/actions?workflow=R-CMD-check)
-[![CRAN version](http://www.r-pkg.org/badges/version/niarules)](https://CRAN.R-project.org/package=niarules)
+<p align="center">
+  <a href="#-about">📋 About</a> •
+  <a href="#-detailed-insights">✨ Detailed insights</a> •
+  <a href="#-installation">📦 Installation</a> •
+  <a href="#-usage">🚀 Usage</a> •
+  <a href="#-reference-papers">📄 Reference papers</a> •
+  <a href="#-license">🔑 License</a>
+</p>
 
-# About 📋
+## 📋 About
 
 niarules is an R framework designed for mining numerical association rules through the utilization of nature-inspired algorithms for optimization. Drawing inspiration from both the [NiaARM Python package](https://github.com/firefly-cpp/NiaARM) and [NiaARM.jl package](https://github.com/firefly-cpp/NiaARM.jl), this repository introduces the capability to perform numerical association rule mining in the R programming language.
 
 The current version of niarules included in this framework offers seamless functionality for automatic dataset loading and preprocessing. It facilitates the exploration of numerical association rules through the application of nature-inspired algorithms, ultimately presenting a comprehensive output that includes identified association rules. Aligning with the principles of the original NiaARM implementation, the process of numerical association rule mining is conceptualized as an optimization problem, and the solution is achieved using population-based nature-inspired algorithms integrated within this framework.
 
-## Detailed insights ✨
+## ✨ Detailed insights
 The current version includes (but is not limited to) the following functions:
 
 - loading datasets in CSV format 📂
@@ -25,7 +40,7 @@ The current version includes (but is not limited to) the following functions:
 - generating statistics about mined association rules 📊
 - providing the implementation of several state-of-the-art nature-inspired algorithms for optimization 🧬
 
-## Installation 📦
+## 📦 Installation
 
 Install CRAN release version:
 
@@ -33,7 +48,7 @@ Install CRAN release version:
 install.packages("niarules")
 ```
 
-## Usage 🚀
+## 🚀 Usage
 
 ### Basic run example
 
@@ -49,7 +64,7 @@ dim <- problem_dimension(features)
 de <- differential_evolution(D = dim, NP = 30, F = 0.5, CR = 0.9, nfes = 1000, features, data)
 print_association_rules(de$arules)
 ```
-## Reference papers 📄
+## 📄 Reference papers
 
 Ideas are based on the following research papers:
 
@@ -69,7 +84,7 @@ Ideas are based on the following research papers:
 
 [3] [arm-preprocessing: Implementation of several preprocessing techniques for Association Rule Mining (ARM)](https://github.com/firefly-cpp/arm-preprocessing)
 
-## License
+## 🔑 License
 
 This package is distributed under the MIT License. This license can be found online at <http://www.opensource.org/licenses/MIT>.
 
