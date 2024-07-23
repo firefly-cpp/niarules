@@ -13,6 +13,12 @@ niarules - Numerical Association Rule Mining using Population-Based Nature-Inspi
   <a href="https://CRAN.R-project.org/package=niarules">
     <img alt="CRAN version" src="https://www.r-pkg.org/badges/version/niarules">
   </a>
+  <a href="https://cran.r-project.org/package=niarules">
+    <img alt="CRAN downloads" src="https://cranlogs.r-pkg.org/badges/grand-total/niarules?color=blue">
+  </a>
+  <a href="https://doi.org/10.32614/CRAN.package.niarules">
+    <img alt="DOI" src="https://img.shields.io/badge/DOI-10.32614/CRAN.package.niarules-blue">
+  </a>
 </p>
 
 <p align="center">
