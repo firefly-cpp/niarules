@@ -9,7 +9,7 @@ dataset <- "datasets/Abalone.csv"
 data <- read_dataset(dataset)
 
 # get features
-features = extract_feature_info(data)
+features <- extract_feature_info(data)
 
 antecedents <- list()
 antecedents <- add_attribute(antecedents, "Height", "numerical", 0.015, 0.44, "A")
@@ -21,4 +21,3 @@ consequence <- add_attribute(consequence, "Sex", "categorical", 1, 1, "I")
 metrics <- supp_conf(antecedents, consequence, data, features)
 all.equal(metrics$supp, 0.3145798)
 all.equal(metrics$conf, 0.3360614)
-

@@ -98,4 +98,3 @@ write_association_rules_to_csv <- function(rules, file_path) {
 
   message("Association rules successfully written to:", file_path)
 }
-

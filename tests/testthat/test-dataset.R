@@ -9,7 +9,7 @@ dataset <- "datasets/Abalone.csv"
 data <- read_dataset(dataset)
 
 # get features
-features = extract_feature_info(data)
+features <- extract_feature_info(data)
 
 # basic tests
 expect_equal(length(features), 9)
