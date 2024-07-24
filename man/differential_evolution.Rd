@@ -5,23 +5,23 @@
 \title{Implementation of Differential Evolution metaheuristic algorithm.}
 \usage{
 differential_evolution(
-  D = 10,
-  NP = 10,
-  F = 0.5,
-  CR = 0.9,
+  d = 10,
+  np = 10,
+  f = 0.5,
+  cr = 0.9,
   nfes = 1000,
   features,
   data
 )
 }
 \arguments{
-\item{D}{Dimension of the problem (default: 10).}
+\item{d}{Dimension of the problem (default: 10).}
 
-\item{NP}{Population size (default: 10).}
+\item{np}{Population size (default: 10).}
 
-\item{F}{The differential weight, controlling the amplification of the difference vector (default: 0.5).}
+\item{f}{The differential weight, controlling the amplification of the difference vector (default: 0.5).}
 
-\item{CR}{The crossover probability, determining the probability of a component being replaced (default: 0.9).}
+\item{cr}{The crossover probability, determining the probability of a component being replaced (default: 0.9).}
 
 \item{nfes}{The maximum number of function evaluations (default: 1000).}
 

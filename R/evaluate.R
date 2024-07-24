@@ -22,8 +22,7 @@ evaluate <- function(solution, features, instances) {
   # Initialize fitness
   fitness <- -1.0
 
-  if (length(rule) > 1)
-  {
+  if (length(rule) > 1) {
     # Calculate cut point
     cut <- cut_point(cut_value, length(rule))
 
@@ -31,20 +30,26 @@ evaluate <- function(solution, features, instances) {
     antecedent <- rule[1:cut]
     consequent <- rule[(cut + 1):length(rule)]
 
-  if (length(antecedent) > 0 && length(consequent) > 0) {
-    support_conf <- supp_conf(antecedent, consequent, instances, features)
-    fitness <- calculate_fitness(support_conf$supp, support_conf$conf)
+    if (length(antecedent) > 0 && length(consequent) > 0) {
+      support_conf <- supp_conf(antecedent, consequent, instances, features)
+      fitness <- calculate_fitness(support_conf$supp, support_conf$conf)
+    }
+
+    rule <- list()
+    # save association rule if fitness is greater than 0
+    if (fitness > 0.0) {
+      rule <- add_association_rule(
+        rule,
+        antecedent,
+        consequent,
+        support_conf$supp,
+        support_conf$conf,
+        fitness
+      )
+    }
   }
 
-  rule <- list()
-  # save association rule if fitness is greater than 0
-  if (fitness > 0.0)
-  {
-    rule <- add_association_rule(rule, antecedent, consequent, support_conf$supp, support_conf$conf, fitness)
-  }
-  }
-
-return(list(fitness=fitness, rules=rule))
+  return(list(fitness = fitness, rules = rule))
 }
 
 #' Calculate support and confidence for an association rule.
@@ -65,13 +70,17 @@ supp_conf <- function(antecedent, consequent, instances, features) {
   con_final <- 0
 
   for (i in 1:nrow(instances)) {
-    numant <- sum(sapply(antecedent, function(attribute)
-      check_attribute(attribute, instances[i, ])))
+    numant <- sum(sapply(
+      antecedent,
+      function(attribute) check_attribute(attribute, instances[i, ])
+    ))
     if (numant == length(antecedent)) {
       ant_final <- ant_final + 1
 
-      numcon <- sum(sapply(consequent, function(attribute)
-        check_attribute(attribute, instances[i, ])))
+      numcon <- sum(sapply(
+        consequent,
+        function(attribute) check_attribute(attribute, instances[i, ])
+      ))
 
       if (numcon == length(consequent)) {
         con_final <- con_final + 1
@@ -145,7 +154,7 @@ feature_borders <- function(features, name) {
 #' @export
 calculate_fitness <- function(supp, conf) {
   #TODO allow to specify alpha, beta, etc. as a parameter.
-  return ((1.0 * supp) + (1.0 * conf)) / 2
+  return((1.0 * supp) + (1.0 * conf)) / 2
 }
 
 #' Calculate the cut point for an association rule.

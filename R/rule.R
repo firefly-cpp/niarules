@@ -28,7 +28,7 @@ build_rule <- function(solution, features) {
 
       if (feat_type != "categorical") {
         border1 <- calculate_border(features[[feature]], solution[vector_position])
-        border2 <- calculate_border(features[[feature]], solution[vector_position+1])
+        border2 <- calculate_border(features[[feature]], solution[vector_position + 1])
 
         if (border1 > border2) {
           temp <- border1
@@ -42,8 +42,7 @@ build_rule <- function(solution, features) {
         } else {
           rules <- add_attribute(rules, feature, feat_type, border1, border2, "EMPTY")
         }
-      } else
-      {
+      } else {
         categories <- features[[feature]]$categories
         selected <- calculate_selected_category(solution[vector_position], length(categories))
 

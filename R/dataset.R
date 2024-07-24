@@ -28,7 +28,11 @@ extract_feature_info <- function(data) {
       lower_bound <- min(data[[col]], na.rm = TRUE)
       upper_bound <- max(data[[col]], na.rm = TRUE)
 
-      feature_info[[col]] <- list(type = "numerical", lower_bound = lower_bound, upper_bound = upper_bound)
+      feature_info[[col]] <- list(
+        type = "numerical",
+        lower_bound = lower_bound,
+        upper_bound = upper_bound
+      )
     } else {
       categories <- unique(data[[col]])
       feature_info[[col]] <- list(type = "categorical", categories = categories)

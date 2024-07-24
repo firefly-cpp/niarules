@@ -16,4 +16,3 @@ rs <- function(candidate_len) {
   solutions <- runif(candidate_len)
   return(solutions)
 }
-
