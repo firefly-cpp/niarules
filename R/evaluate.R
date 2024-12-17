@@ -1,55 +1,94 @@
-#' Evaluate a candidate solution.
+#' Evaluate a candidate solution, with optional time series filtering.
 #'
-#' This function takes a canditate solution (vector), list of features, and instances, and evaluates the fitness
-#' of an association rule by calculating support and confidence.
+#' This function takes a candidate solution (vector), a list of features,
+#' and instances. It evaluates the fitness of an association rule by calculating
+#' support and confidence. If time series data is used, restrict evaluation
+#' to the specified time range.
 #'
 #' @param solution A vector representing a candidate solution for the association rule.
 #' @param features A list containing information about features, including type and bounds.
 #' @param instances A data frame representing instances in the dataset.
+#' @param is_time_series A boolean flag indicating if time series filtering is required.
 #'
 #' @return The fitness of the association rule and identified rule.
 #'
 #' @export
-evaluate <- function(solution, features, instances) {
-  # Obtain cut point value and remove this value from a vector of solutions
-  # TODO:: abs
-  cut_value <- abs(tail(solution, 1))
-  solution <- head(solution, -1)
+evaluate <- function(solution, features, instances, is_time_series = FALSE) {
+  total_transactions <- nrow(instances)
 
-  # Build a rule from the candidate solution
+  time_series_range <- NULL
+  filtered_instances <- instances
+
+  # Process time series bounds if applicable
+  if (is_time_series) {
+    start_time <- abs(tail(solution, 2)[1])
+    end_time <- abs(tail(solution, 2)[2])
+    solution <- head(solution, -2)
+
+    time_bounds <- map_to_ts(start_time, end_time, total_transactions)
+    filtered_instances <- instances[time_bounds$low:time_bounds$up, ]
+    time_series_range <- list(start = time_bounds$low, end = time_bounds$up)
+  }
+
+  # Build rule from solution
   rule <- build_rule(solution, features)
-
-  # Initialize fitness
   fitness <- -1.0
+  support_conf <- NULL
 
   if (length(rule) > 1) {
-    # Calculate cut point
-    cut <- cut_point(cut_value, length(rule))
-
-    # Get antecedent and consequent of the rule
+    # Extract antecedent and consequent using cut point
+    cut <- cut_point(abs(solution[length(solution)]), length(rule))
     antecedent <- rule[1:cut]
     consequent <- rule[(cut + 1):length(rule)]
 
-    if (length(antecedent) > 0 && length(consequent) > 0) {
-      support_conf <- supp_conf(antecedent, consequent, instances, features)
-      fitness <- calculate_fitness(support_conf$supp, support_conf$conf)
-    }
+    # Calculate support and confidence
+    support_conf <- supp_conf(antecedent, consequent, filtered_instances, features)
+    fitness <- calculate_fitness(support_conf$supp, support_conf$conf)
 
-    rule <- list()
-    # save association rule if fitness is greater than 0
-    if (fitness > 0.0) {
-      rule <- add_association_rule(
-        rule,
-        antecedent,
-        consequent,
-        support_conf$supp,
-        support_conf$conf,
-        fitness
-      )
-    }
+    # Add support, confidence, and fitness to rule
+    rule <- list(
+      antecedent = antecedent,
+      consequent = consequent,
+      support = support_conf$supp,
+      confidence = support_conf$conf,
+      fitness = fitness
+    )
   }
 
-  return(list(fitness = fitness, rules = rule))
+  if (!is.null(time_series_range)) {
+    rule$time_series_range <- time_series_range
+  }
+
+  return(list(fitness = fitness, rules = list(rule)))
+}
+
+#' Map solution boundaries to time series indices.
+#'
+#' This function maps the lower and upper bounds of the solution vector to
+#' transaction indices based on the length of the time series.
+#'
+#' @param lower The lower bound of the time range in [0, 1].
+#' @param upper The upper bound of the time range in [0, 1].
+#' @param total_transactions The total number of transactions in the time series.
+#'
+#' @return A list with `low` and `up` indices.
+#' @export
+map_to_ts <- function(lower, upper, total_transactions) {
+  low <- trunc(total_transactions * lower)
+  up <- trunc(total_transactions * upper)
+
+  # Ensure indices are valid and ordered
+  if (low > up) {
+    temp <- low
+    low <- up
+    up <- temp
+  }
+
+  # Ensure indices are within bounds
+  low <- max(low, 1)
+  up <- min(up, total_transactions)
+
+  return(list(low = low, up = up))
 }
 
 #' Calculate support and confidence for an association rule.
@@ -70,24 +109,26 @@ supp_conf <- function(antecedent, consequent, instances, features) {
   con_final <- 0
 
   for (i in 1:nrow(instances)) {
-    numant <- sum(sapply(
-      antecedent,
-      function(attribute) check_attribute(attribute, instances[i, ])
-    ))
-    if (numant == length(antecedent)) {
+    # Check antecedent
+    is_antecedent_satisfied <- all(sapply(antecedent, function(attribute) {
+      check_attribute(attribute, instances[i, ])
+    }))
+
+    if (is_antecedent_satisfied) {
       ant_final <- ant_final + 1
 
-      numcon <- sum(sapply(
-        consequent,
-        function(attribute) check_attribute(attribute, instances[i, ])
-      ))
+      # Check consequent
+      is_consequent_satisfied <- all(sapply(consequent, function(attribute) {
+        check_attribute(attribute, instances[i, ])
+      }))
 
-      if (numcon == length(consequent)) {
+      if (is_consequent_satisfied) {
         con_final <- con_final + 1
       }
     }
   }
 
+  # Calculate support and confidence
   supp <- con_final / nrow(instances)
   conf <- ifelse(ant_final == 0, 0, con_final / ant_final)
 
@@ -106,40 +147,14 @@ supp_conf <- function(antecedent, consequent, instances, features) {
 #'
 #' @export
 check_attribute <- function(attribute, instance_row) {
-  if (attribute$type != "categorical") {
-    feature_min <- attribute$border1
-    feature_max <- attribute$border2
-    return(instance_row[attribute$name] >= feature_min &&
-             instance_row[attribute$name] <= feature_max)
+  if (attribute$type == "numerical") {
+    return(instance_row[attribute$name] >= attribute$border1 &&
+             instance_row[attribute$name] <= attribute$border2)
+  } else if (attribute$type == "categorical") {
+    return(instance_row[attribute$name] == attribute$value)
   } else {
-    return(attribute$value == instance_row[attribute$name])
+    stop("Unsupported attribute type: ", attribute$type)
   }
-}
-
-#' Get the lower and upper bounds of a feature.
-#'
-#' This function retrieves the lower and upper bounds of a feature from the features list.
-#'
-#' @param features A list containing information about features, including type and bounds.
-#' @param name The name of the feature.
-#'
-#' @return A list containing the lower and upper bounds of the feature.
-#'
-#' @export
-feature_borders <- function(features, name) {
-  min_val <- 0.0
-  max_val <- 0.0
-
-  feat_names <- names(features)
-  for (f in feat_names) {
-    if (f == name) {
-      min_val <- features[[f]]$lower_bound
-      max_val <- features[[f]]$upper_bound
-      break
-    }
-  }
-
-  return(list(feature_min = min_val, feature_max = max_val))
 }
 
 #' Calculate the fitness of an association rule.
@@ -153,7 +168,6 @@ feature_borders <- function(features, name) {
 #'
 #' @export
 calculate_fitness <- function(supp, conf) {
-  #TODO allow to specify alpha, beta, etc. as a parameter.
   return((1.0 * supp) + (1.0 * conf)) / 2
 }
 
@@ -169,36 +183,9 @@ calculate_fitness <- function(supp, conf) {
 #'
 #' @export
 cut_point <- function(sol, num_attr) {
-  # Calculate cut point.
   cut <- trunc(sol * num_attr)
   cut <- ifelse(cut == 0, 1, cut)
   cut <- ifelse(cut > (num_attr - 1), num_attr - 2, cut)
 
   return(cut)
-}
-
-#' Add an association rule to the list of rules.
-#'
-#' This function adds a new association rule to the existing list of rules.
-#'
-#' @param rules The current list of association rules.
-#' @param antecedent The antecedent part of the association rule.
-#' @param consequence The consequent part of the association rule.
-#' @param support The support of the association rule.
-#' @param confidence The confidence of the association rule.
-#' @param fitness The fitness of the association rule.
-#'
-#' @return The updated list of association rules.
-#'
-#' @export
-add_association_rule <- function(rules, antecedent, consequence,
-                                 support, confidence, fitness) {
-  new_rule <- list(
-    antecedent = antecedent,
-    consequence = consequence,
-    support = support,
-    confidence = confidence,
-    fitness = fitness
-  )
-  return(c(rules, list(new_rule)))
 }

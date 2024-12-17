@@ -3,13 +3,14 @@
 #' This function uses Differential Evolution, a stochastic population-based optimization algorithm,
 #' to find the optimal numerical association rule.
 #'
-#' @param D Dimension of the problem (default: 10).
-#' @param NP Population size (default: 10).
-#' @param F The differential weight, controlling the amplification of the difference vector (default: 0.5).
-#' @param CR The crossover probability, determining the probability of a component being replaced (default: 0.9).
+#' @param d Dimension of the problem (default: 10).
+#' @param np Population size (default: 10).
+#' @param f The differential weight, controlling the amplification of the difference vector (default: 0.5).
+#' @param cr The crossover probability, determining the probability of a component being replaced (default: 0.9).
 #' @param nfes The maximum number of function evaluations (default: 1000).
 #' @param features A list containing information about features, including type and bounds.
 #' @param data A data frame representing instances in the dataset.
+#' @param is_time_series A boolean indicating whether the dataset is time series.
 #'
 #' @return A list containing the best solution, its fitness value, and the number of function evaluations and list of identified association rules.
 #'
@@ -21,69 +22,69 @@ differential_evolution <- function(
   cr = 0.9,
   nfes = 1000,
   features,
-  data
+  data,
+  is_time_series = FALSE
 ) {
-  # a list for storing all association rules
+  # A list for storing all association rules
   arules <- list()
 
   # Initialize population
-  population <- matrix(runif(np * D, 0.0, 1.0), nrow = np, ncol = D)
+  population <- matrix(runif(np * d, 0.0, 1.0), nrow = np, ncol = d)
 
   # Evaluate the objective function for each individual in the population
   results <- apply(
     population,
     1,
-    function(individual) evaluate(individual, features, data)
+    function(individual) evaluate(individual, features, data, is_time_series)
   )
 
   # Extract fitness values and association rules separately
   fitness_values <- sapply(results, function(result) result$fitness)
   arule <- lapply(results, function(result) result$rules)
 
-  # Save identified rule
-  # Remove empty lists
-  filter_rules <- arule[sapply(arule, length) > 0]
-
+  # Save identified rules
+  filter_rules <- arule[sapply(arule, function(r) is.list(r) && !is.null(r$fitness))]
   if (length(filter_rules) > 0) {
-    arules <- c(arules, filter_rules)
+    arules <- c(arules, unlist(filter_rules, recursive = FALSE))
   }
 
   # Start counting function evaluations
   num_evaluations <- np
 
-  # Main optimization loop based on function evaluations
+  # Main optimization loop
   while (num_evaluations < nfes) {
     # Create new population
-    new_population <- matrix(NA, nrow = np, ncol = D)
+    new_population <- matrix(NA, nrow = np, ncol = d)
 
     for (i in 1:np) {
       # Select three distinct individuals
       candidates <- sample(1:np, 3, replace = FALSE)
 
-      # Apply diferential mutation
-      mutant_vector <- population[candidates[1], ] + f *
-        (population[candidates[2], ] - population[candidates[3], ])
+      # Apply differential mutation
+      mutant_vector <- population[candidates[1], ] +
+        f * (population[candidates[2], ] - population[candidates[3], ])
 
       # Apply differential crossover
       crossover_mask <- runif(d) < cr
-      trial_vector <- ifelse(crossover_mask, mutant_vector,
-                             population[i, ])
+      trial_vector <- ifelse(crossover_mask, mutant_vector, population[i, ])
 
-      # check for bounds (should be between 0 and 1)
+      # Ensure values are within [0, 1]
       trial_vector <- fix_borders(trial_vector)
-      # Evaluate the objective function
-      fit <- evaluate(trial_vector, features, data)
+
+      # Evaluate the trial vector
+      fit <- evaluate(trial_vector, features, data, is_time_series)
       trial_fitness <- fit$fitness
 
-      # save rule if fitness greater than 0
+      # Save rule if fitness is greater than 0
       if (trial_fitness > 0.0) {
-        arules <- c(arules, fit$rule)
+        valid_rules <- Filter(function(r) is.list(r) && !is.null(r$fitness), fit$rules)
+        arules <- c(arules, valid_rules)
       }
 
       # Increment the number of function evaluations
       num_evaluations <- num_evaluations + 1
 
-      # Select the better vector between the trial and the current individual
+      # Select the better vector
       if (trial_fitness > fitness_values[i]) {
         new_population[i, ] <- trial_vector
         fitness_values[i] <- trial_fitness
@@ -91,7 +92,7 @@ differential_evolution <- function(
         new_population[i, ] <- population[i, ]
       }
 
-      # Check if the maximum number of evaluations is reached
+      # Break if maximum evaluations reached
       if (num_evaluations >= nfes) {
         break
       }
@@ -100,43 +101,36 @@ differential_evolution <- function(
     # Update the population
     population <- new_population
 
-    # Check if the maximum number of evaluations is reached
+    # Check if maximum evaluations reached
     if (num_evaluations >= nfes) {
       break
     }
   }
 
-  # Find the best individual in the final population
+  # Find the best individual
   best_index <- which.max(fitness_values)
   best_solution <- population[best_index, ]
   best_fitness <- fitness_values[best_index]
 
-  # Remove empty list in the nested list
-  arules <- arules[sapply(arules, length) > 1]
+  # Remove empty or invalid rules
+  arules <- arules[sapply(arules, function(r) is.list(r) && !is.null(r$fitness))]
 
   return(list(
-    "best_solution" = best_solution,
-    "best_fitness" = best_fitness,
-    "num_evaluations" = num_evaluations,
-    "arules" = arules
+    best_solution = best_solution,
+    best_fitness = best_fitness,
+    num_evaluations = num_evaluations,
+    arules = arules
   ))
 }
 
 #' Fix Borders of a Numeric Vector
 #'
-#' This function takes a numeric vector as input and ensures that all values
-#' greater than 1.0 are set to 1.0, and all values less than 0.0 are set to 0.0.
+#' This function ensures that all values greater than 1.0 are set to 1.0,
+#' and all values less than 0.0 are set to 0.0.
 #'
 #' @param vector A numeric vector to be processed.
 #'
-#' @return A numeric vector with borders fixed. Values greater than 1.0 are
-#'   replaced with 1.0, and values less than 0.0 are replaced with 0.0.
-#'
-#' @examples
-#' original_vector <- c(1.19007417, 0.33135271, -0.5, 1.5, 0.0)
-#' fixed_vector <- fix_borders(original_vector)
-#' print(fixed_vector)
-#'
+#' @return A numeric vector with borders fixed.
 #' @export
 fix_borders <- function(vector) {
   vector[vector > 1.0] <- 1.0
