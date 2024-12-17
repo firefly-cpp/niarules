@@ -4,12 +4,16 @@ library("testthat")
 context("Dataset tests")
 
 dataset <- "datasets/Abalone.csv"
-
 # read dataset
 data <- read_dataset(dataset)
 
+# time series data
+data2 <- read_dataset("datasets/ts.csv", timestamp_col = "timestamp")
+
 # get features
 features <- extract_feature_info(data)
+
+features2 <- extract_feature_info(data2)
 
 # basic tests
 expect_equal(length(features), 9)
@@ -22,3 +26,6 @@ expect_equal(names(features)[5], "Whole.weight")
 # dimension of the problem
 dim <- problem_dimension(features)
 expect_equal(dim, 36)
+
+dim2 <- problem_dimension(features2, is_time_series = TRUE)
+expect_equal(dim2, 11)
