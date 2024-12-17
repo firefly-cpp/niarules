@@ -34,6 +34,7 @@ it into a date-time format using the specified \code{timestamp_format}. If parsi
 will be thrown.
 }
 \examples{
+\dontrun{
 # Example usage:
 # Read a dataset without timestamps
 data <- read_dataset("path/to/dataset.csv")
@@ -44,5 +45,6 @@ data_with_timestamps <- read_dataset(
   timestamp_col = "timestamp",
   timestamp_format = "\%Y-\%m-\%d \%H:\%M:\%S"
 )
+}
 
 }

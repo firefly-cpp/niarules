@@ -19,6 +19,7 @@
 #' will be thrown.
 #'
 #' @examples
+#' \dontrun{
 #' # Example usage:
 #' # Read a dataset without timestamps
 #' data <- read_dataset("path/to/dataset.csv")
@@ -29,6 +30,7 @@
 #'   timestamp_col = "timestamp",
 #'   timestamp_format = "%Y-%m-%d %H:%M:%S"
 #' )
+#' }
 #'
 #' @export
 read_dataset <- function(dataset_path, timestamp_col = "timestamp", timestamp_format = "%d/%m/%Y %H:%M:%S") {
