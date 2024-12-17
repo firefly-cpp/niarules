@@ -4,18 +4,26 @@
 \alias{write_association_rules_to_csv}
 \title{Write Association Rules to CSV file}
 \usage{
-write_association_rules_to_csv(rules, file_path)
+write_association_rules_to_csv(
+  rules,
+  file_path,
+  is_time_series = FALSE,
+  timestamps = NULL
+)
 }
 \arguments{
 \item{rules}{A list of association rules.}
 
 \item{file_path}{The file path for the CSV output.}
+
+\item{is_time_series}{A boolean flag indicating if time series information should be included.}
+
+\item{timestamps}{A vector of timestamps corresponding to the time series data.}
 }
 \value{
-No explicit return value. The function writes association rules to a CSV file
-specified by the `file_path` parameter. A message is printed to the console
-indicating the successful completion of the writing process.
+No explicit return value. The function writes association rules to a CSV file.
 }
 \description{
-This function writes association rules to a CSV file.
+This function writes association rules to a CSV file. For time series datasets,
+it also includes start and end timestamps instead of indices.
 }

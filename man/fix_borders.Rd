@@ -10,16 +10,9 @@ fix_borders(vector)
 \item{vector}{A numeric vector to be processed.}
 }
 \value{
-A numeric vector with borders fixed. Values greater than 1.0 are
-  replaced with 1.0, and values less than 0.0 are replaced with 0.0.
+A numeric vector with borders fixed.
 }
 \description{
-This function takes a numeric vector as input and ensures that all values
-greater than 1.0 are set to 1.0, and all values less than 0.0 are set to 0.0.
-}
-\examples{
-original_vector <- c(1.19007417, 0.33135271, -0.5, 1.5, 0.0)
-fixed_vector <- fix_borders(original_vector)
-print(fixed_vector)
-
+This function ensures that all values greater than 1.0 are set to 1.0,
+and all values less than 0.0 are set to 0.0.
 }

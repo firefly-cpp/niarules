@@ -2,22 +2,18 @@
 % Please edit documentation in R/dataset.R
 \name{problem_dimension}
 \alias{problem_dimension}
-\title{Calculate the dimension of the problem based on feature information.}
+\title{Calculate the dimension of the problem, excluding timestamps.}
 \usage{
-problem_dimension(feature_info)
+problem_dimension(feature_info, is_time_series = FALSE)
 }
 \arguments{
 \item{feature_info}{A list containing information about each feature.}
+
+\item{is_time_series}{Boolean indicating if time series data is present.}
 }
 \value{
 The calculated dimension based on the feature types.
 }
 \description{
-This function takes a list of feature information and calculates the dimension
-based on the type of each feature. Method is inspired by referenced paper.
-}
-\references{
-Fister, I., Iglesias, A., Galvez, A., Del Ser, J., Osaba, E., & Fister, I. (2018).
-Differential evolution for association rule mining using categorical and numerical attributes.
-In \emph{Intelligent Data Engineering and Automated Learning--IDEAL 2018: 19th International Conference, Madrid, Spain, November 21--23, 2018, Proceedings, Part I} (pp. 79--88). Springer.
+Calculate the dimension of the problem, excluding timestamps.
 }

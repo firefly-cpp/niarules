@@ -11,7 +11,8 @@ differential_evolution(
   cr = 0.9,
   nfes = 1000,
   features,
-  data
+  data,
+  is_time_series = FALSE
 )
 }
 \arguments{
@@ -28,6 +29,8 @@ differential_evolution(
 \item{features}{A list containing information about features, including type and bounds.}
 
 \item{data}{A data frame representing instances in the dataset.}
+
+\item{is_time_series}{A boolean indicating whether the dataset is time series.}
 }
 \value{
 A list containing the best solution, its fitness value, and the number of function evaluations and list of identified association rules.

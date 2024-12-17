@@ -2,15 +2,17 @@
 % Please edit documentation in R/dataset.R
 \name{extract_feature_info}
 \alias{extract_feature_info}
-\title{Extract feature information from a dataset.}
+\title{Extract feature information from a dataset, excluding timestamps.}
 \usage{
-extract_feature_info(data)
+extract_feature_info(data, timestamp_col = "timestamp")
 }
 \arguments{
 \item{data}{The dataset to analyze.}
+
+\item{timestamp_col}{Optional. The name of the timestamp column to exclude from features.}
 }
 \value{
-A list containing information about each feature.
+A list containing information about each feature, including type and bounds/categories.
 }
 \description{
 This function analyzes the given dataset and extracts information about each feature.

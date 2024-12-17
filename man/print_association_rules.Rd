@@ -4,15 +4,20 @@
 \alias{print_association_rules}
 \title{Print Numerical Association Rules}
 \usage{
-print_association_rules(rules)
+print_association_rules(rules, is_time_series = FALSE, timestamps = NULL)
 }
 \arguments{
 \item{rules}{A list containing association rules.}
+
+\item{is_time_series}{A boolean flag indicating if time series information should be included.}
+
+\item{timestamps}{A vector of timestamps corresponding to the time series data.}
 }
 \value{
 Prints the association rules.
 }
 \description{
 This function prints association rules including antecedent, consequence,
-support, confidence, and fitness.
+support, confidence, and fitness. For time series datasets, it also includes
+the start and end timestamps instead of indices.
 }

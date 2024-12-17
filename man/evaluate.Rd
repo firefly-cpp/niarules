@@ -2,9 +2,9 @@
 % Please edit documentation in R/evaluate.R
 \name{evaluate}
 \alias{evaluate}
-\title{Evaluate a candidate solution.}
+\title{Evaluate a candidate solution, with optional time series filtering.}
 \usage{
-evaluate(solution, features, instances)
+evaluate(solution, features, instances, is_time_series = FALSE)
 }
 \arguments{
 \item{solution}{A vector representing a candidate solution for the association rule.}
@@ -12,11 +12,15 @@ evaluate(solution, features, instances)
 \item{features}{A list containing information about features, including type and bounds.}
 
 \item{instances}{A data frame representing instances in the dataset.}
+
+\item{is_time_series}{A boolean flag indicating if time series filtering is required.}
 }
 \value{
 The fitness of the association rule and identified rule.
 }
 \description{
-This function takes a canditate solution (vector), list of features, and instances, and evaluates the fitness
-of an association rule by calculating support and confidence.
+This function takes a candidate solution (vector), a list of features,
+and instances. It evaluates the fitness of an association rule by calculating
+support and confidence. If time series data is used, restrict evaluation
+to the specified time range.
 }

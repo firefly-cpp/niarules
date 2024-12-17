@@ -12,7 +12,7 @@ print_feature_info(feature_info)
 \value{
 A message is printed to the console for each feature, providing information
 about the feature's type, and additional details such as lower and upper bounds
-for numerical features or categories for categorical features.
+for numerical features, or categories for categorical features.
 No explicit return value is generated.
 }
 \description{
