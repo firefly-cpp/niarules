@@ -1,12 +1,34 @@
-#' Read a dataset from a CSV file, including time series data.
+#' Read a Dataset from a CSV File, Including Time Series Data
 #'
 #' This function reads a CSV file and returns the dataset as a data frame.
-#' If a timestamp column is detected, it ensures the column is correctly parsed as a date-time object.
+#' If a timestamp column is detected, it ensures the column is correctly parsed
+#' as a date-time object in POSIXct format.
 #'
-#' @param dataset_path The path to the CSV file.
-#' @param timestamp_col Optional. The name of the column containing timestamps (default: "timestamp").
-#' @param timestamp_format Optional. The format of the timestamp in the dataset (default: "%d/%m/%Y %H:%M:%S").
-#' @return A data frame representing the dataset with timestamps parsed if applicable.
+#' @param dataset_path A string specifying the path to the CSV file.
+#' @param timestamp_col Optional. A string specifying the name of the column containing timestamps.
+#'   Default is \code{"timestamp"}.
+#' @param timestamp_format Optional. A string specifying the format of the timestamp in the dataset.
+#'   Default is \code{"\%d/\%m/\%Y \%H:\%M:\%S"}.
+#'
+#' @return A data frame representing the dataset. If a timestamp column is provided, it will be parsed
+#'   as a POSIXct date-time object.
+#'
+#' @details
+#' If the \code{timestamp_col} is provided and exists in the dataset, this function attempts to parse
+#' it into a date-time format using the specified \code{timestamp_format}. If parsing fails, an error
+#' will be thrown.
+#'
+#' @examples
+#' # Example usage:
+#' # Read a dataset without timestamps
+#' data <- read_dataset("path/to/dataset.csv")
+#'
+#' # Read a dataset with timestamps
+#' data_with_timestamps <- read_dataset(
+#'   "path/to/timeseries.csv",
+#'   timestamp_col = "timestamp",
+#'   timestamp_format = "%Y-%m-%d %H:%M:%S"
+#' )
 #'
 #' @export
 read_dataset <- function(dataset_path, timestamp_col = "timestamp", timestamp_format = "%d/%m/%Y %H:%M:%S") {
@@ -23,6 +45,7 @@ read_dataset <- function(dataset_path, timestamp_col = "timestamp", timestamp_fo
 
   return(dataset)
 }
+
 
 #' Extract feature information from a dataset, excluding timestamps.
 #'
