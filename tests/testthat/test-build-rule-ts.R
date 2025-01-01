@@ -24,10 +24,12 @@ expect_equal(features[[4]]$lower_bound, 0)
 dim <- problem_dimension(features, is_time_series = TRUE)
 expect_equal(dim, 22)
 
-solution <- c(0.93186346, 0.62861471, 0.34720034, 0.51736529, 0.34957089, 0.06362278,
-            0.52224747, 0.31581756, 0.78154328, 0.60825901, 0.81263313, 0.4070408,
-            0.93014498, 0.46848055, 0.15840165, 0.14308865, 0.86379166, 0.46777855,
-            0.60746777, 0.13133695, 0.23055155, 0.60543971)
+solution <- c(
+  0.93186346, 0.62861471, 0.34720034, 0.51736529, 0.34957089, 0.06362278,
+  0.52224747, 0.31581756, 0.78154328, 0.60825901, 0.81263313, 0.4070408,
+  0.93014498, 0.46848055, 0.15840165, 0.14308865, 0.86379166, 0.46777855,
+  0.60746777, 0.13133695, 0.23055155, 0.60543971
+)
 
 expect_equal(length(solution), 22)
 
@@ -35,7 +37,7 @@ expect_equal(length(solution), 22)
 cut_value <- abs(tail(solution, 1))
 all.equal(cut_value, 0.60543971)
 
-#calculate cut point
+# calculate cut point
 cut <- cut_point(cut_value, length(features))
 expect_equal(cut, 3)
 
