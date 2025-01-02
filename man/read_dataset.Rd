@@ -7,7 +7,7 @@
 read_dataset(
   dataset_path,
   timestamp_col = "timestamp",
-  timestamp_format = "\%d/\%m/\%Y \%H:\%M:\%S"
+  timestamp_formats = c("\%d/\%m/\%Y \%H:\%M:\%S", "\%H:\%M:\%S \%d/\%m/\%Y")
 )
 }
 \arguments{
@@ -15,12 +15,9 @@ read_dataset(
 
 \item{timestamp_col}{Optional. A string specifying the name of the column containing timestamps.
 Default is \code{"timestamp"}.}
-
-\item{timestamp_format}{Optional. A string specifying the format of the timestamp in the dataset.
-Default is \code{"\%d/\%m/\%Y \%H:\%M:\%S"}.}
 }
 \value{
-A data frame representing the dataset. If a timestamp column is provided, it will be parsed
+A data frame representing the dataset. If a timestamp column is provided and exists, it will be parsed
   as a POSIXct date-time object.
 }
 \description{
@@ -30,7 +27,7 @@ as a date-time object in POSIXct format.
 }
 \details{
 If the \code{timestamp_col} is provided and exists in the dataset, this function attempts to parse
-it into a date-time format using the specified \code{timestamp_format}. If parsing fails, an error
+it into a date-time format using the specified \code{timestamp_formats}. If parsing fails, an error
 will be thrown.
 }
 \examples{
@@ -43,7 +40,7 @@ data <- read_dataset("path/to/dataset.csv")
 data_with_timestamps <- read_dataset(
   "path/to/timeseries.csv",
   timestamp_col = "timestamp",
-  timestamp_format = "\%Y-\%m-\%d \%H:\%M:\%S"
+  timestamp_formats = c("\%d/\%m/\%Y \%H:\%M:\%S", "\%H:\%M:\%S \%d/\%m/\%Y")
 )
 }
 
