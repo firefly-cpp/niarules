@@ -7,15 +7,15 @@
 #' @param dataset_path A string specifying the path to the CSV file.
 #' @param timestamp_col Optional. A string specifying the name of the column containing timestamps.
 #'   Default is \code{"timestamp"}.
-#' @param timestamp_format Optional. A string specifying the format of the timestamp in the dataset.
-#'   Default is \code{"\%d/\%m/\%Y \%H:\%M:\%S"}.
+#' @param timestamp_formats Optional. A vector of strings specifying the formats of the timestamp in the dataset.
+#'   Default is \code{c("%d/%m/%Y %H:%M:%S", "%H:%M:%S %d/%m/%Y")}.
 #'
-#' @return A data frame representing the dataset. If a timestamp column is provided, it will be parsed
+#' @return A data frame representing the dataset. If a timestamp column is provided and exists, it will be parsed
 #'   as a POSIXct date-time object.
 #'
 #' @details
 #' If the \code{timestamp_col} is provided and exists in the dataset, this function attempts to parse
-#' it into a date-time format using the specified \code{timestamp_format}. If parsing fails, an error
+#' it into a date-time format using the specified \code{timestamp_formats}. If parsing fails, an error
 #' will be thrown.
 #'
 #' @examples
@@ -28,7 +28,7 @@
 #' data_with_timestamps <- read_dataset(
 #'   "path/to/timeseries.csv",
 #'   timestamp_col = "timestamp",
-#'   timestamp_formats = "%d/%m/%Y %H:%M:%S", "%H:%M:%S %d/%m/%Y"
+#'   timestamp_formats = c("%d/%m/%Y %H:%M:%S", "%H:%M:%S %d/%m/%Y")
 #' )
 #' }
 #'
@@ -36,31 +36,31 @@
 read_dataset <- function(dataset_path,
                          timestamp_col = "timestamp",
                          timestamp_formats = c("%d/%m/%Y %H:%M:%S", "%H:%M:%S %d/%m/%Y")) {
+  # Read the dataset
   dataset <- read.csv(dataset_path, stringsAsFactors = FALSE)
 
-  # Check if the timestamp column exists
-  if (!(timestamp_col %in% colnames(dataset))) {
-    stop(paste("Error: Column", timestamp_col, "not found in the dataset"))
-  }
+  # Check if the timestamp column is specified and exists
+  if (!is.null(timestamp_col) && timestamp_col %in% colnames(dataset)) {
+    parsed_timestamp <- NULL
 
-  # Try parsing the timestamp with each format in order
-  parsed_timestamp <- NULL
-  for (fmt in timestamp_formats) {
-    parsed_timestamp <- tryCatch({
-      as.POSIXct(dataset[[timestamp_col]], format = fmt, tz = "UTC")
-    }, error = function(e) NULL)
+    # Try parsing the timestamp with each format in order
+    for (fmt in timestamp_formats) {
+      parsed_timestamp <- tryCatch({
+        as.POSIXct(dataset[[timestamp_col]], format = fmt, tz = "UTC")
+      }, error = function(e) NULL)
 
-    if (!is.null(parsed_timestamp) && !any(is.na(parsed_timestamp))) {
-      # Successfully parsed
-      dataset[[timestamp_col]] <- parsed_timestamp
-      break
+      if (!is.null(parsed_timestamp) && !any(is.na(parsed_timestamp))) {
+        # Successfully parsed
+        dataset[[timestamp_col]] <- parsed_timestamp
+        break
+      }
     }
-  }
 
-  # If all formats failed
-  if (is.null(parsed_timestamp) || any(is.na(dataset[[timestamp_col]]))) {
-    stop("Error: Unable to parse timestamps in column '", timestamp_col,
-         "'. None of the provided formats matched. Check the timestamp formats.")
+    # If all formats failed
+    if (is.null(parsed_timestamp) || any(is.na(dataset[[timestamp_col]]))) {
+      stop("Error: Unable to parse timestamps in column '", timestamp_col,
+           "'. None of the provided formats matched. Check the timestamp formats.")
+    }
   }
 
   return(dataset)
