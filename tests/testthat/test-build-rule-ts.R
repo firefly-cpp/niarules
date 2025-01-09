@@ -63,3 +63,25 @@ filtered_instances <- data[result$low:result$up, ]
 metrics <- supp_conf(antecedents, consequence, filtered_instances, features)
 expect_equal(metrics$supp, 0.272727272727)
 expect_equal(metrics$conf, 0.272727272727)
+
+# SCENARIO 2
+antecedents2 <- list()
+antecedents2 <- add_attribute(antecedents, "weather", "categorical", 1, 1, "clouds")
+antecedents2 <- add_attribute(antecedents, "humidity", "numerical", 60.23, 65.8921, "A")
+
+consequence2 <- list()
+consequence2 <- add_attribute(consequence, "temperature", "numerical", 0, 100, "A")
+
+metrics2 <- supp_conf(antecedents2, consequence2, filtered_instances, features)
+expect_equal(metrics2$supp, 0.3)
+expect_equal(metrics2$conf, 1.0)
+
+# SCENARIO 3
+antecedents3 <- list()
+antecedents3 <- add_attribute(antecedents, "weather", "categorical", 1, 1, "clouds")
+antecedents3 <- add_attribute(antecedents, "humidity", "numerical", 60.23, 65.8921, "A")
+antecedents3 <- add_attribute(antecedents, "light", "numerical", 13.00, 20.8921, "A")
+
+metrics3 <- supp_conf(antecedents3, consequence2, filtered_instances, features)
+expect_equal(metrics3$supp, 0.1)
+expect_equal(metrics3$conf, 1.0)
