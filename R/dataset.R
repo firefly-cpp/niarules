@@ -1,37 +1,12 @@
-#' Read a Dataset from a CSV File, Including Time Series Data
+#' Read a CSV Dataset
 #'
-#' This function reads a CSV file and returns the dataset as a data frame.
-#' If a timestamp column is detected, it ensures the column is correctly parsed
-#' as a date-time object in POSIXct format.
+#' Reads a dataset from a CSV file and optionally parses a timestamp column.
 #'
 #' @param dataset_path A string specifying the path to the CSV file.
-#' @param timestamp_col Optional. A string specifying the name of the column containing timestamps.
-#'   Default is `"timestamp"`.
-#' @param timestamp_formats Optional. A vector of strings specifying the formats of the timestamp in the dataset.
-#'   Default is `c("%d/%m/%Y %H:%M:%S", "%H:%M:%S %d/%m/%Y")`.
+#' @param timestamp_col A string specifying the timestamp column name (default: `"timestamp"`).
+#' @param timestamp_formats A vector of date-time formats to try for parsing timestamps.
 #'
-#' @return A data frame representing the dataset. If a timestamp column is provided and exists, it will be parsed
-#'   as a POSIXct date-time object.
-#'
-#' @details
-#' If the `timestamp_col` is provided and exists in the dataset, this function attempts to parse
-#' it into a date-time format using the specified `timestamp_formats`. If parsing fails, an error
-#' will be thrown.
-#'
-#' @examples
-#' \dontrun{
-#' # Example usage:
-#' # Read a dataset without timestamps
-#' data <- read_dataset("path/to/dataset.csv")
-#'
-#' # Read a dataset with timestamps
-#' data_with_timestamps <- read_dataset(
-#'   "path/to/timeseries.csv",
-#'   timestamp_col = "timestamp",
-#'   timestamp_formats = c("%d/%m/%Y %H:%M:%S", "%H:%M:%S %d/%m/%Y")
-#' )
-#' }
-#'
+#' @return A data frame containing the dataset.
 #' @export
 read_dataset <- function(dataset_path,
                          timestamp_col = "timestamp",
