@@ -6,16 +6,16 @@
 #'
 #' @param dataset_path A string specifying the path to the CSV file.
 #' @param timestamp_col Optional. A string specifying the name of the column containing timestamps.
-#'   Default is \code{"timestamp"}.
+#'   Default is `"timestamp"`.
 #' @param timestamp_formats Optional. A vector of strings specifying the formats of the timestamp in the dataset.
-#'   Default is \code{c("%d/%m/%Y %H:%M:%S", "%H:%M:%S %d/%m/%Y")}.
+#'   Default is `c("%d/%m/%Y %H:%M:%S", "%H:%M:%S %d/%m/%Y")`.
 #'
 #' @return A data frame representing the dataset. If a timestamp column is provided and exists, it will be parsed
 #'   as a POSIXct date-time object.
 #'
 #' @details
-#' If the \code{timestamp_col} is provided and exists in the dataset, this function attempts to parse
-#' it into a date-time format using the specified \code{timestamp_formats}. If parsing fails, an error
+#' If the `timestamp_col` is provided and exists in the dataset, this function attempts to parse
+#' it into a date-time format using the specified `timestamp_formats`. If parsing fails, an error
 #' will be thrown.
 #'
 #' @examples

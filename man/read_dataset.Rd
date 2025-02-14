@@ -14,7 +14,10 @@ read_dataset(
 \item{dataset_path}{A string specifying the path to the CSV file.}
 
 \item{timestamp_col}{Optional. A string specifying the name of the column containing timestamps.
-Default is \code{"timestamp"}.}
+Default is `"timestamp"`.}
+
+\item{timestamp_formats}{Optional. A vector of strings specifying the formats of the timestamp in the dataset.
+Default is `c("%d/%m/%Y %H:%M:%S", "%H:%M:%S %d/%m/%Y")`.}
 }
 \value{
 A data frame representing the dataset. If a timestamp column is provided and exists, it will be parsed
@@ -26,8 +29,8 @@ If a timestamp column is detected, it ensures the column is correctly parsed
 as a date-time object in POSIXct format.
 }
 \details{
-If the \code{timestamp_col} is provided and exists in the dataset, this function attempts to parse
-it into a date-time format using the specified \code{timestamp_formats}. If parsing fails, an error
+If the `timestamp_col` is provided and exists in the dataset, this function attempts to parse
+it into a date-time format using the specified `timestamp_formats`. If parsing fails, an error
 will be thrown.
 }
 \examples{
