@@ -16,5 +16,5 @@ The cut point value.
 }
 \description{
 This function calculates the cut point, denoting which part of the vector belongs
-to the antecedent and which to the consequence of the mined association rule.
+to the antecedent and which to the consequent of the mined association rule.
 }

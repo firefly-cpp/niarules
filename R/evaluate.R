@@ -16,7 +16,6 @@
 evaluate <- function(solution, features, instances, is_time_series = FALSE) {
   total_transactions <- nrow(instances)
 
-  time_series_range <- NULL
   filtered_instances <- instances
 
   # Process time series bounds if applicable
@@ -25,9 +24,8 @@ evaluate <- function(solution, features, instances, is_time_series = FALSE) {
     end_time <- abs(tail(solution, 2)[2])
     solution <- head(solution, -2)
 
-    time_bounds <- map_to_ts(start_time, end_time, total_transactions)
-    filtered_instances <- instances[time_bounds$low:time_bounds$up, ]
-    time_series_range <- list(start = time_bounds$low, end = time_bounds$up)
+    time_bounds <- map_to_ts(start_time, end_time, instances)
+    filtered_instances <- time_bounds$filtered_instances
   }
 
   # Build rule from solution
@@ -55,10 +53,6 @@ evaluate <- function(solution, features, instances, is_time_series = FALSE) {
     )
   }
 
-  if (!is.null(time_series_range)) {
-    rule$time_series_range <- time_series_range
-  }
-
   return(list(fitness = fitness, rules = list(rule)))
 }
 
@@ -69,22 +63,22 @@ evaluate <- function(solution, features, instances, is_time_series = FALSE) {
 #'
 #' @param lower The lower bound of the time range in [0, 1].
 #' @param upper The upper bound of the time range in [0, 1].
-#' @param total_transactions The total number of transactions in the time series.
+#' @param total_transactions The total number of transactions in the dataset.
 #'
 #' @return A list with `low` and `up` indices.
 #' @export
 map_to_ts <- function(lower, upper, total_transactions) {
-  low <- trunc(total_transactions * lower)
-  up <- trunc(total_transactions * upper)
+  low <- ceiling(lower * total_transactions)
+  up <- floor(upper * total_transactions)  # Floor keeps the upper bound consistent
 
-  # Ensure indices are valid and ordered
+  # Ensure indices are ordered correctly
   if (low > up) {
     temp <- low
     low <- up
     up <- temp
   }
 
-  # Ensure indices are within bounds
+  # Ensure indices stay within bounds
   low <- max(low, 1)
   up <- min(up, total_transactions)
 
@@ -105,35 +99,67 @@ map_to_ts <- function(lower, upper, total_transactions) {
 #'
 #' @export
 supp_conf <- function(antecedent, consequent, instances, features) {
-  ant_final <- 0
-  con_final <- 0
+  total_transactions <- nrow(instances)
 
-  for (i in 1:nrow(instances)) {
-    # Check antecedent
-    is_antecedent_satisfied <- all(sapply(antecedent, function(attribute) {
-      check_attribute(attribute, instances[i, ])
-    }))
+  if (total_transactions == 0) {
+    return(list(supp = 0, conf = 0))
+  }
 
-    if (is_antecedent_satisfied) {
-      ant_final <- ant_final + 1
+  antecedent_matches <- list()
+  both_matches <- list()
 
-      # Check consequent
-      is_consequent_satisfied <- all(sapply(consequent, function(attribute) {
-        check_attribute(attribute, instances[i, ])
-      }))
+  # Find transactions that match !!ALL!! antecedent conditions
+  for (i in 1:total_transactions) {
+    row <- instances[i, , drop=FALSE]  # Ensure row remains a dataframe
+    antecedent_valid <- TRUE
 
-      if (is_consequent_satisfied) {
-        con_final <- con_final + 1
+    for (attribute in antecedent) {
+      if (!check_attribute(attribute, row)) {
+        antecedent_valid <- FALSE
+        break
       }
+    }
+
+    if (antecedent_valid) {
+      antecedent_matches <- append(antecedent_matches, list(row))
     }
   }
 
-  # Calculate support and confidence
-  supp <- con_final / nrow(instances)
-  conf <- ifelse(ant_final == 0, 0, con_final / ant_final)
+  antecedent_count <- length(antecedent_matches)
+
+  if (antecedent_count == 0) {
+    return(list(supp = 0, conf = 0))
+  }
+
+  for (row in antecedent_matches) {
+    consequent_valid <- TRUE
+
+    for (attribute in consequent) {
+      if (!check_attribute(attribute, row)) {
+        consequent_valid <- FALSE
+        break
+      }
+    }
+
+    if (consequent_valid) {
+      both_matches <- append(both_matches, list(row))
+    }
+  }
+
+  both_count <- length(both_matches)
+
+  supp <- round(both_count / total_transactions, digits = 10)
+
+  conf <- if (antecedent_count > 0) {
+    round(both_count / antecedent_count, digits = 10)
+  } else {
+    0
+  }
 
   return(list(supp = supp, conf = conf))
 }
+
+
 
 #' Check if the attribute conditions are satisfied for an instance.
 #'
@@ -147,14 +173,32 @@ supp_conf <- function(antecedent, consequent, instances, features) {
 #'
 #' @export
 check_attribute <- function(attribute, instance_row) {
-  if (attribute$type == "numerical") {
-    return(instance_row[attribute$name] >= attribute$border1 &&
-             instance_row[attribute$name] <= attribute$border2)
-  } else if (attribute$type == "categorical") {
-    return(instance_row[attribute$name] == attribute$value)
-  } else {
-    stop("Unsupported attribute type: ", attribute$type)
+  attr_name <- attribute$name
+  attr_type <- attribute$type
+
+  if (!(attr_name %in% names(instance_row))) {
+    print(paste("Missing attribute:", attr_name))
+    return(FALSE)
   }
+
+  instance_value <- instance_row[[attr_name]]
+
+  if (attr_type == "categorical") {
+    result <- !is.na(instance_value) && as.character(instance_value) == as.character(attribute$value)
+    return(result)
+  } else if (attr_type == "numerical") {
+    instance_value <- as.numeric(instance_value)
+
+    if (!is.na(instance_value) && !is.null(attribute$border1) && !is.null(attribute$border2)) {
+      result <- instance_value >= attribute$border1 && instance_value <= attribute$border2
+    } else {
+      result <- FALSE
+    }
+    return(result)
+  }
+
+  print(paste("Unknown attribute type:", attr_type))
+  return(FALSE)
 }
 
 #' Calculate the fitness of an association rule.
@@ -174,7 +218,7 @@ calculate_fitness <- function(supp, conf) {
 #' Calculate the cut point for an association rule.
 #'
 #' This function calculates the cut point, denoting which part of the vector belongs
-#' to the antecedent and which to the consequence of the mined association rule.
+#' to the antecedent and which to the consequent of the mined association rule.
 #'
 #' @param sol The cut value from the solution vector.
 #' @param num_attr The number of attributes in the association rule.

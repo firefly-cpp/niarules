@@ -11,7 +11,7 @@ map_to_ts(lower, upper, total_transactions)
 
 \item{upper}{The upper bound of the time range in [0, 1].}
 
-\item{total_transactions}{The total number of transactions in the time series.}
+\item{total_transactions}{The total number of transactions in the dataset.}
 }
 \value{
 A list with `low` and `up` indices.

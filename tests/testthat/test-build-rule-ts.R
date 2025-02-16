@@ -43,45 +43,60 @@ expect_equal(cut, 3)
 
 solution <- head(solution, -1)
 
-# check metrics
-antecedents <- list()
-antecedents <- add_attribute(antecedents, "weather", "categorical", 1, 1, "clouds")
-
-consequence <- list()
-consequence <- add_attribute(consequence, "temperature", "numerical", 28.5, 28.5, "A")
-
 # test start and end interval
 result <- map_to_ts(lower = 0.13133695, upper = 0.23055155, total_transactions = num_instances)
-expect_equal(result$low, 13)
+expect_equal(result$low, 14)
 expect_equal(result$up, 23)
 
-expect_equal(data$timestamp[13], "2024-09-08 20:16:11")
+expect_equal(data$timestamp[14], "2024-09-08 20:16:21")
 expect_equal(data$timestamp[23], "2024-09-08 20:17:51")
 
 filtered_instances <- data[result$low:result$up, ]
 
-metrics <- supp_conf(antecedents, consequence, filtered_instances, features)
-expect_equal(metrics$supp, 0.272727272727)
-expect_equal(metrics$conf, 0.272727272727)
+### TEST METRICS ###
+# SCENARIO 1
+ant <- list()
+ant <- add_attribute(ant, "weather", "categorical", 1, 1, "clouds")
+
+con <- list()
+con <- add_attribute(con, "temperature", "numerical", 28.5, 28.5, "A")
+
+metrics <- supp_conf(ant, con, filtered_instances, features)
+expect_equal(metrics$supp, 0.2)
+expect_equal(metrics$conf, 0.2)
 
 # SCENARIO 2
-antecedents2 <- list()
-antecedents2 <- add_attribute(antecedents, "weather", "categorical", 1, 1, "clouds")
-antecedents2 <- add_attribute(antecedents, "humidity", "numerical", 60.23, 65.8921, "A")
+ant2 <- list()
+ant2 <- add_attribute(ant2, "weather", "categorical", 1, 1, "clouds")
+ant2 <- add_attribute(ant2, "humidity", "numerical", 60.23, 65.8921, "A")
 
-consequence2 <- list()
-consequence2 <- add_attribute(consequence, "temperature", "numerical", 0, 100, "A")
+con2 <- list()
+con2 <- add_attribute(con2, "temperature", "numerical", 0, 100, "A")
 
-metrics2 <- supp_conf(antecedents2, consequence2, filtered_instances, features)
-expect_equal(metrics2$supp, 0.3)
-expect_equal(metrics2$conf, 1.0)
+metrics2 <- supp_conf(ant2, con, filtered_instances, features)
+expect_equal(metrics2$supp, 0.0)
+expect_equal(metrics2$conf, 0.0)
 
 # SCENARIO 3
-antecedents3 <- list()
-antecedents3 <- add_attribute(antecedents, "weather", "categorical", 1, 1, "clouds")
-antecedents3 <- add_attribute(antecedents, "humidity", "numerical", 60.23, 65.8921, "A")
-antecedents3 <- add_attribute(antecedents, "light", "numerical", 13.00, 20.8921, "A")
+ant3 <- list()
+ant3 <- add_attribute(ant3, "weather", "categorical", 1, 1, "clouds")
+ant3 <- add_attribute(ant3, "humidity", "numerical", 60.23, 65.8921, "A")
+ant3 <- add_attribute(ant3, "light", "numerical", 13.00, 20.8921, "A")
 
-metrics3 <- supp_conf(antecedents3, consequence2, filtered_instances, features)
-expect_equal(metrics3$supp, 0.1)
-expect_equal(metrics3$conf, 1.0)
+metrics3 <- supp_conf(ant3, con, filtered_instances, features)
+expect_equal(metrics3$supp, 0.0)
+expect_equal(metrics3$conf, 0.0)
+
+# COMBINATIONS
+
+metrics4 <- supp_conf(ant, con2, filtered_instances, features)
+expect_equal(metrics4$supp, 1.0)
+expect_equal(metrics4$conf, 1.0)
+
+metrics5 <- supp_conf(ant2, con2, filtered_instances, features)
+expect_equal(metrics5$supp, 0.3)
+expect_equal(metrics5$conf, 1.0)
+
+metrics6 <- supp_conf(ant3, con2, filtered_instances, features)
+expect_equal(metrics6$supp, 0.1)
+expect_equal(metrics6$conf, 1.0)
