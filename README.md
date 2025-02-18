@@ -34,7 +34,7 @@ niarules - Numerical Association Rule Mining using Population-Based Nature-Inspi
 
 niarules is an R framework designed for mining numerical association rules through the utilization of nature-inspired algorithms for optimization. Drawing inspiration from both the [NiaARM Python package](https://github.com/firefly-cpp/NiaARM) and [NiaARM.jl package](https://github.com/firefly-cpp/NiaARM.jl), this repository introduces the capability to perform numerical association rule mining in the R programming language.
 
-The current version of niarules included in this framework offers seamless functionality for automatic dataset loading and preprocessing. It facilitates the exploration of numerical association rules through the application of nature-inspired algorithms, ultimately presenting a comprehensive output that includes identified association rules. Aligning with the principles of the original NiaARM implementation, the process of numerical association rule mining is conceptualized as an optimization problem, and the solution is achieved using population-based nature-inspired algorithms integrated within this framework.
+The current version of niarules included in this framework offers seamless functionality for automatic dataset loading and preprocessing. It facilitates the exploration of numerical association rules through the application of nature-inspired algorithms, ultimately presenting a comprehensive output that includes identified association rules. Aligning with the principles of the original NiaARM implementation, the process of numerical association rule mining is conceptualized as an optimization problem, and the solution is achieved using population-based nature-inspired algorithms integrated within this framework. Besides the conventional numerical association rule mining, the current version also adds support for Segmented Interval Time Series Numerical Association Rule Mining as proposed in [NiaARMTS](https://github.com/firefly-cpp/NiaARMTS).
 
 ## ✨ Detailed insights
 The current version includes (but is not limited to) the following functions:
@@ -45,6 +45,7 @@ The current version includes (but is not limited to) the following functions:
 - providing an output of mined association rules 📝
 - generating statistics about mined association rules 📊
 - providing the implementation of several state-of-the-art nature-inspired algorithms for optimization 🧬
+- supporting the time series numerical association rule mining
 
 ## 📦 Installation
 
@@ -56,20 +57,79 @@ install.packages("niarules")
 
 ## 🚀 Usage
 
-### Basic run example
+### Basic run example (conventional datasets)
 
 ```R
 library("niarules")
+
+# Define the dataset file
 dataset <- "Abalone.csv"
-# read dataset
+
+# Read dataset
 data <- read_dataset(dataset)
-# get features
-features = extract_feature_info(data)
-dim <- problem_dimension(features)
-# Use Differential Evolution algorithm for discovering association rules
-de <- differential_evolution(D = dim, NP = 30, F = 0.5, CR = 0.9, nfes = 1000, features, data)
-print_association_rules(de$arules)
+
+# Extract feature information
+features <- extract_feature_info(data)
+
+# Determine problem dimension
+dim <- problem_dimension(features, is_time_series = FALSE)
+
+# Run Differential Evolution Algorithm
+de <- differential_evolution(
+  d = dim,
+  np = 30,
+  f = 0.5,
+  cr = 0.9,
+  nfes = 1000,
+  features = features,
+  data = data,
+  is_time_series = FALSE
+)
+
+# Print identified association rules
+print_association_rules(de$arules, is_time_series = FALSE)
+
+# Save association rules to a CSV file
+write_association_rules_to_csv(de$arules, "Rules.csv", is_time_series = FALSE)
+
 ```
+
+### Basic run example (time series datasets)
+
+```R
+library("niarules")
+
+# Define the dataset file (Ensure you have a time series dataset in CSV format)
+dataset <- "ts2.csv"
+
+# Read dataset
+data <- read_dataset(dataset, timestamp_col = "timestamp")
+
+# Extract feature information
+features <- extract_feature_info(data)
+
+# Determine problem dimension
+dim <- problem_dimension(features, is_time_series = TRUE)
+
+# Run Differential Evolution Algorithm for time series data
+de <- differential_evolution(
+  d = dim,
+  np = 30,
+  f = 0.5,
+  cr = 0.9,
+  nfes = 1000,
+  features = features,
+  data = data,
+  is_time_series = TRUE
+)
+
+# Print identified association rules
+print_association_rules(de$arules, is_time_series = TRUE)
+
+# Save association rules to a CSV file
+write_association_rules_to_csv(de$arules, "Rules.csv", is_time_series = TRUE)
+```
+
 ## 📄 Reference papers
 
 Ideas are based on the following research papers:
@@ -89,6 +149,8 @@ Ideas are based on the following research papers:
 [2] [NiaARM: Numerical Association Rule Mining in Python](https://github.com/firefly-cpp/NiaARM)
 
 [3] [arm-preprocessing: Implementation of several preprocessing techniques for Association Rule Mining (ARM)](https://github.com/firefly-cpp/arm-preprocessing)
+
+[4] [NiaARMTS: Nature-Inspired Algorithms for Time Series Numerical Association Rule Mining](https://github.com/firefly-cpp/NiaARMTS)
 
 ## 🔑 License
 
