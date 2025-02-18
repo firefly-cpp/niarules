@@ -124,10 +124,10 @@ de <- differential_evolution(
 )
 
 # Print identified association rules
-print_association_rules(de$arules, is_time_series = TRUE)
+print_association_rules(de$arules, is_time_series = TRUE, timestamps = data[["timestamp"]])
 
 # Save association rules to a CSV file
-write_association_rules_to_csv(de$arules, "Rules.csv", is_time_series = TRUE)
+write_association_rules_to_csv(de$arules, "Rules.csv", is_time_series = TRUE, timestamps = data[["timestamp"]])
 ```
 
 ## 📚 Reference Papers
