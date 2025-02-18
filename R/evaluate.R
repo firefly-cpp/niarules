@@ -1,88 +1,86 @@
 #' Evaluate a candidate solution, with optional time series filtering.
 #'
-#' This function takes a candidate solution (vector), a list of features,
-#' and instances. It evaluates the fitness of an association rule by calculating
-#' support and confidence. If time series data is used, restrict evaluation
-#' to the specified time range.
+#' This function evaluates the fitness of an association rule using support and confidence.
+#' If time series data is used, it restricts evaluation to the specified time range.
 #'
-#' @param solution A vector representing a candidate solution for the association rule.
-#' @param features A list containing information about features, including type and bounds.
-#' @param instances A data frame representing instances in the dataset.
+#' @param solution A vector representing a candidate solution.
+#' @param features A list containing information about features.
+#' @param instances A data frame representing dataset instances.
 #' @param is_time_series A boolean flag indicating if time series filtering is required.
 #'
-#' @return The fitness of the association rule and identified rule.
-#'
+#' @return A list containing fitness and identified rules.
 #' @export
 evaluate <- function(solution, features, instances, is_time_series = FALSE) {
   total_transactions <- nrow(instances)
-
-  filtered_instances <- instances
-
-  # Process time series bounds if applicable
+  
+  # Process time series filtering if applicable
   if (is_time_series) {
     start_time <- abs(tail(solution, 2)[1])
     end_time <- abs(tail(solution, 2)[2])
-    solution <- head(solution, -2)
-
+    solution <- head(solution, -2)  # Remove time bounds from solution
+    
     time_bounds <- map_to_ts(start_time, end_time, instances)
-    filtered_instances <- time_bounds$filtered_instances
+    instances <- time_bounds$filtered_instances  # Filter dataset
   }
-
+  
   # Build rule from solution
   rule <- build_rule(solution, features)
   fitness <- -1.0
-  support_conf <- NULL
-
+  
   if (length(rule) > 1) {
-    # Extract antecedent and consequent using cut point
     cut <- cut_point(abs(solution[length(solution)]), length(rule))
     antecedent <- rule[1:cut]
     consequent <- rule[(cut + 1):length(rule)]
-
-    # Calculate support and confidence
-    support_conf <- supp_conf(antecedent, consequent, filtered_instances, features)
+    
+    # Compute support and confidence only within the filtered dataset
+    support_conf <- supp_conf(antecedent, consequent, instances, features)
     fitness <- calculate_fitness(support_conf$supp, support_conf$conf)
-
-    # Add support, confidence, and fitness to rule
+    
+    # Add time range info to the rule (for output purposes)
     rule <- list(
       antecedent = antecedent,
       consequent = consequent,
       support = support_conf$supp,
       confidence = support_conf$conf,
-      fitness = fitness
+      fitness = fitness,
+      time_series_range = if (is_time_series) list(start = time_bounds$low, end = time_bounds$up) else NULL
     )
   }
-
+  
   return(list(fitness = fitness, rules = list(rule)))
 }
 
-#' Map solution boundaries to time series indices.
-#'
-#' This function maps the lower and upper bounds of the solution vector to
-#' transaction indices based on the length of the time series.
-#'
-#' @param lower The lower bound of the time range in [0, 1].
-#' @param upper The upper bound of the time range in [0, 1].
-#' @param total_transactions The total number of transactions in the dataset.
-#'
-#' @return A list with `low` and `up` indices.
-#' @export
-map_to_ts <- function(lower, upper, total_transactions) {
-  low <- ceiling(lower * total_transactions)
-  up <- floor(upper * total_transactions)  # Floor keeps the upper bound consistent
 
-  # Ensure indices are ordered correctly
+#' Map solution boundaries to time series instances.
+#'
+#' This function maps the lower and upper bounds of the solution vector to a subset of the dataset.
+#'
+#' @param lower The lower bound in [0, 1].
+#' @param upper The upper bound in [0, 1].
+#' @param instances The full dataset.
+#'
+#' @return A list with `low`, `up`, and `filtered_instances`.
+#' @export
+map_to_ts <- function(lower, upper, instances) {
+  total_transactions <- nrow(instances)
+  
+  low <- ceiling(lower * total_transactions)
+  up <- floor(upper * total_transactions)
+  
+  # Swap indices if end index is lower than start index
   if (low > up) {
     temp <- low
     low <- up
     up <- temp
   }
-
-  # Ensure indices stay within bounds
+  
   low <- max(low, 1)
   up <- min(up, total_transactions)
-
-  return(list(low = low, up = up))
+  
+  # Extract the filtered instances
+  filtered_instances <- instances[low:up, , drop = FALSE]
+  
+  return(list(low = low, up = up, filtered_instances = filtered_instances))
 }
 
 #' Calculate support and confidence for an association rule.

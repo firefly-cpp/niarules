@@ -2,21 +2,20 @@
 % Please edit documentation in R/evaluate.R
 \name{map_to_ts}
 \alias{map_to_ts}
-\title{Map solution boundaries to time series indices.}
+\title{Map solution boundaries to time series instances.}
 \usage{
-map_to_ts(lower, upper, total_transactions)
+map_to_ts(lower, upper, instances)
 }
 \arguments{
-\item{lower}{The lower bound of the time range in [0, 1].}
+\item{lower}{The lower bound in [0, 1].}
 
-\item{upper}{The upper bound of the time range in [0, 1].}
+\item{upper}{The upper bound in [0, 1].}
 
-\item{total_transactions}{The total number of transactions in the dataset.}
+\item{instances}{The full dataset.}
 }
 \value{
-A list with `low` and `up` indices.
+A list with `low`, `up`, and `filtered_instances`.
 }
 \description{
-This function maps the lower and upper bounds of the solution vector to
-transaction indices based on the length of the time series.
+This function maps the lower and upper bounds of the solution vector to a subset of the dataset.
 }

@@ -33,25 +33,25 @@ solution <- c(
 
 expect_equal(length(solution), 22)
 
-# obtain cut value
+# obtain cut point value
 cut_value <- abs(tail(solution, 1))
 all.equal(cut_value, 0.60543971)
 
-# calculate cut point
+# calculate cut point value
 cut <- cut_point(cut_value, length(features))
 expect_equal(cut, 3)
 
 solution <- head(solution, -1)
 
 # test start and end interval
-result <- map_to_ts(lower = 0.13133695, upper = 0.23055155, total_transactions = num_instances)
+result <- map_to_ts(lower = 0.13133695, upper = 0.23055155, instances = data)
 expect_equal(result$low, 14)
 expect_equal(result$up, 23)
 
-expect_equal(data$timestamp[14], "2024-09-08 20:16:21")
-expect_equal(data$timestamp[23], "2024-09-08 20:17:51")
+expect_equal(data$timestamp[result$low], "2024-09-08 20:16:21")
+expect_equal(data$timestamp[result$up], "2024-09-08 20:17:51")
 
-filtered_instances <- data[result$low:result$up, ]
+filtered_instances <- result$filtered_instances
 
 ### TEST METRICS ###
 # SCENARIO 1
