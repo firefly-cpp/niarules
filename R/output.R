@@ -29,13 +29,10 @@ print_association_rules <- function(rules, is_time_series = FALSE, timestamps = 
 
     message("\nRule", i, ":")
 
-    message("Antecedent:")
-    print_rule_parts(rule$antecedent)
+    message("Antecedent:", toString(format_rule_parts(rule$antecedent)))
+    message("Consequence:", toString(format_rule_parts(rule$consequent)))
 
-    message("\nConsequence:")
-    print_rule_parts(rule$consequent)
-
-    message("\nSupport:", rule$support)
+    message("Support:", rule$support)
     message("Confidence:", rule$confidence)
     message("Fitness:", rule$fitness)
 
@@ -60,29 +57,21 @@ print_association_rules <- function(rules, is_time_series = FALSE, timestamps = 
   }
 }
 
-#' Print Rule Parts
+#' Format Rule Parts
 #'
-#' This function prints the parts of an association rule, including name, type,
-#' border1, border2, and value.
+#' This function formats the parts of an association rule into a string.
 #'
 #' @param parts A list containing parts of an association rule.
 #'
-#' @return Prints the rule parts.
-#'
-print_rule_parts <- function(parts) {
-  for (i in seq_along(parts)) {
-    part <- parts[[i]]
-
+#' @return A formatted string representing the rule parts.
+format_rule_parts <- function(parts) {
+  sapply(parts, function(part) {
     if (part$type == "numerical") {
-      message(part$name, "(", part$border1, ",", part$border2, ")")
+      paste0(part$name, " (", part$border1, ",", part$border2, ")")
     } else {
-      message(part$name, "(", part$value, ")")
+      paste0(part$name, " (", part$value, ")")
     }
-
-    if (i < length(parts)) {
-      message(" & ")
-    }
-  }
+  })
 }
 
 #' Write Association Rules to CSV file
@@ -102,8 +91,8 @@ print_rule_parts <- function(parts) {
 write_association_rules_to_csv <- function(rules, file_path, is_time_series = FALSE, timestamps = NULL) {
   # Extracting relevant information from the nested structure
   rules_data <- lapply(rules, function(rule) {
-    antecedent_names <- sapply(rule$antecedent, function(part) part$name)
-    consequence_names <- sapply(rule$consequent, function(part) part$name)
+    antecedent_str <- toString(format_rule_parts(rule$antecedent))
+    consequence_str <- toString(format_rule_parts(rule$consequent))
 
     if (is_time_series && !is.null(rule$time_series_range) && !is.null(timestamps)) {
       start_index <- rule$time_series_range$start
@@ -112,16 +101,16 @@ write_association_rules_to_csv <- function(rules, file_path, is_time_series = FA
       start_timestamp <- ifelse(start_index <= length(timestamps), as.character(timestamps[start_index]), NA)
       end_timestamp <- ifelse(end_index <= length(timestamps), as.character(timestamps[end_index]), NA)
 
-      c(Antecedent = toString(antecedent_names),
-        Consequence = toString(consequence_names),
+      c(Antecedent = antecedent_str,
+        Consequence = consequence_str,
         Support = rule$support,
         Confidence = rule$confidence,
         Fitness = rule$fitness,
         StartTime = start_timestamp,
         EndTime = end_timestamp)
     } else {
-      c(Antecedent = toString(antecedent_names),
-        Consequence = toString(consequence_names),
+      c(Antecedent = antecedent_str,
+        Consequence = consequence_str,
         Support = rule$support,
         Confidence = rule$confidence,
         Fitness = rule$fitness)
