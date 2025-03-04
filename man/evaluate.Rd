@@ -22,3 +22,15 @@ A list containing fitness and identified rules.
 This function evaluates the fitness of an association rule using support and confidence.
 If time series data is used, it restricts evaluation to the specified time range.
 }
+\references{
+Fister, I., Iglesias, A., Galvez, A., Del Ser, J., Osaba, E., & Fister, I. (2018).
+"Differential evolution for association rule mining using categorical and numerical attributes."
+In Intelligent Data Engineering and Automated Learning–IDEAL 2018: 19th International Conference,
+Madrid, Spain, November 21–23, 2018, Proceedings, Part I (pp. 79-88). Springer International Publishing.
+\doi{10.1007/978-3-030-03496-2_9}
+
+Fister Jr, I., Podgorelec, V., & Fister, I. (2021). "Improved nature-inspired algorithms for numeric
+association rule mining." In Intelligent Computing and Optimization: Proceedings of the 3rd International
+Conference on Intelligent Computing and Optimization 2020 (ICO 2020) (pp. 187-195).
+Springer International Publishing. \doi{10.1007/978-3-030-68154-8_19}
+}

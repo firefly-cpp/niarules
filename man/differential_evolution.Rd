@@ -39,3 +39,8 @@ A list containing the best solution, its fitness value, and the number of functi
 This function uses Differential Evolution, a stochastic population-based optimization algorithm,
 to find the optimal numerical association rule.
 }
+\references{
+Storn, R., & Price, K. (1997). "Differential Evolution – A Simple and Efficient Heuristic
+for Global Optimization over Continuous Spaces." Journal of Global Optimization, 11(4), 341–359.
+\doi{10.1023/A:1008202821328}
+}

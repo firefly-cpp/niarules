@@ -15,6 +15,10 @@
 #'
 #' @return A list containing the best solution, its fitness value, and the number of function evaluations and list of identified association rules.
 #'
+#' @references Kennedy, J., & Eberhart, R. (1995). "Particle swarm optimization."
+#' Proceedings of ICNN'95 - International Conference on Neural Networks, 4, 1942–1948.
+#' IEEE. \doi{10.1109/ICNN.1995.488968}
+#'
 #' @export
 particle_swarm_optimization <- function(
   d = 10,
