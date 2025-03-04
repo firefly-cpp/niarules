@@ -89,6 +89,13 @@ format_rule_parts <- function(parts) {
 #' @return No explicit return value. The function writes association rules to a CSV file.
 #'
 write_association_rules_to_csv <- function(rules, file_path, is_time_series = FALSE, timestamps = NULL) {
+
+  # Filter out invalid rules
+  rules <- Filter(function(x) is.list(x) && !is.null(x$fitness), rules)
+
+  # Sort rules by fitness in descending order
+  rules <- rules[order(sapply(rules, function(x) -x$fitness))]
+
   # Extracting relevant information from the nested structure
   rules_data <- lapply(rules, function(rule) {
     antecedent_str <- toString(format_rule_parts(rule$antecedent))
