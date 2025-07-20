@@ -23,5 +23,7 @@ RoxygenNote: 7.3.0
 Imports:
     stats,
     utils
+    ggplot2,
+    grid
 Suggests:
   testthat
