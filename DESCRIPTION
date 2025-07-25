@@ -22,7 +22,7 @@ LazyData: true
 RoxygenNote: 7.3.0
 Imports:
     stats,
-    utils
+    utils,
     ggplot2,
     grid
 Suggests:
