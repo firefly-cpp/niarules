@@ -10,21 +10,21 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
-// test_some_adding_of_numbers
-int test_some_adding_of_numbers(int a, int b);
-RcppExport SEXP _niarules_test_some_adding_of_numbers(SEXP aSEXP, SEXP bSEXP) {
+// wrapped_buildRadialPlots
+List wrapped_buildRadialPlots(const DataFrame& rulesDF, int grid_size);
+RcppExport SEXP _niarules_wrapped_buildRadialPlots(SEXP rulesDFSEXP, SEXP grid_sizeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< int >::type a(aSEXP);
-    Rcpp::traits::input_parameter< int >::type b(bSEXP);
-    rcpp_result_gen = Rcpp::wrap(test_some_adding_of_numbers(a, b));
+    Rcpp::traits::input_parameter< const DataFrame& >::type rulesDF(rulesDFSEXP);
+    Rcpp::traits::input_parameter< int >::type grid_size(grid_sizeSEXP);
+    rcpp_result_gen = Rcpp::wrap(wrapped_buildRadialPlots(rulesDF, grid_size));
     return rcpp_result_gen;
 END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_niarules_test_some_adding_of_numbers", (DL_FUNC) &_niarules_test_some_adding_of_numbers, 2},
+    {"_niarules_wrapped_buildRadialPlots", (DL_FUNC) &_niarules_wrapped_buildRadialPlots, 2},
     {NULL, NULL, 0}
 };
 

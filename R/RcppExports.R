@@ -2,7 +2,7 @@
 # Generator token: 10BE3573-1514-4C36-9D1C-5A225CD40393
 
 #' @export
-test_some_adding_of_numbers <- function(a, b) {
-    .Call(`_niarules_test_some_adding_of_numbers`, a, b)
+wrapped_buildRadialPlots <- function(rulesDF, grid_size) {
+    .Call(`_niarules_wrapped_buildRadialPlots`, rulesDF, grid_size)
 }
 
