@@ -48,27 +48,27 @@ get_rules_wide_niarules <- function(rules_df)
     rename(rhs = to)
 }
 
-#data_raw <- niarules::read_dataset("abalone_data.csv")
+data_raw <- niarules::read_dataset("inst/extdata/Abalone.csv")
 
-#features <- niarules::extract_feature_info(data_raw)
-#d <- niarules::problem_dimension(features, is_time_series = FALSE)
+features <- niarules::extract_feature_info(data_raw)
+d <- niarules::problem_dimension(features, is_time_series = FALSE)
 
-#de <- niarules::differential_evolution(
-#  d        = d,
-#  np       = 30,
-#  f        = 0.5,
-#  cr       = 0.9,
-#  nfes     = 1000,
-#  features = features,
-#  data     = data_raw,
-#  is_time_series = FALSE
-#)
+de <- niarules::differential_evolution(
+  d        = d,
+  np       = 30,
+  f        = 0.5,
+  cr       = 0.9,
+  nfes     = 1000,
+  features = features,
+  data     = data_raw,
+  is_time_series = FALSE
+)
 
-#niarules::write_association_rules_to_csv(
-#  de$arules,
-#  file       = rules_csv,
-#  is_time_series = FALSE
-#)
+niarules::write_association_rules_to_csv(
+  de$arules,
+  file       = rules_csv,
+  is_time_series = FALSE
+)
 
 # and build the "wide" dataframe
 wdf <- get_rules_wide_niarules(rules_df)
@@ -154,6 +154,5 @@ render_radial_rgl <- function(
   par3d(skipRedraw = FALSE)
 }
 
-# lets render this crap!
 render_radial_rgl(res$nodes, res$edges, grid_size, NULL, "lightblue", FALSE)
 
