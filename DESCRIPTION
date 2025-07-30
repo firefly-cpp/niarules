@@ -25,7 +25,10 @@ Imports:
     utils,
     ggplot2,
     grid,
-    Rcpp
+    Rcpp,
+	dplyr,
+	tidyr,
+	rgl
 Suggests:
   testthat
 LinkingTo: 

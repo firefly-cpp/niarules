@@ -10,21 +10,21 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
-// wrapped_buildRadialPlots
-List wrapped_buildRadialPlots(const DataFrame& rulesDF, int grid_size);
-RcppExport SEXP _niarules_wrapped_buildRadialPlots(SEXP rulesDFSEXP, SEXP grid_sizeSEXP) {
+// buildRadialPlots
+List buildRadialPlots(const DataFrame& rulesDF, int grid_size);
+RcppExport SEXP _niarules_buildRadialPlots(SEXP rulesDFSEXP, SEXP grid_sizeSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< const DataFrame& >::type rulesDF(rulesDFSEXP);
     Rcpp::traits::input_parameter< int >::type grid_size(grid_sizeSEXP);
-    rcpp_result_gen = Rcpp::wrap(wrapped_buildRadialPlots(rulesDF, grid_size));
+    rcpp_result_gen = Rcpp::wrap(buildRadialPlots(rulesDF, grid_size));
     return rcpp_result_gen;
 END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_niarules_wrapped_buildRadialPlots", (DL_FUNC) &_niarules_wrapped_buildRadialPlots, 2},
+    {"_niarules_buildRadialPlots", (DL_FUNC) &_niarules_buildRadialPlots, 2},
     {NULL, NULL, 0}
 };
 

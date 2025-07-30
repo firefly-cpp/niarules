@@ -1,6 +1,6 @@
 #include <Rcpp.h>
 
-#include "radial_layout.hpp"
+#include "radial_layout.h"
 
 #include <cmath>
 #include <algorithm>
@@ -343,8 +343,8 @@ void buildRadialPlots(
 	std::vector<std::string> &id_to_item,
 	int grid_size)
 {
-	std::cout << "number of rules " << rules.size() << std::endl;
-	std::cout << "requested grid size " << grid_size << std::endl;;
+	Rcpp::Rcout << "number of rules " << rules.size() << "\n";
+	Rcpp::Rcout << "requested grid size " << grid_size << "\n";
 	
 	auto t0 = std::chrono::high_resolution_clock::now();
 
@@ -352,8 +352,8 @@ void buildRadialPlots(
 	
 	auto t1 = std::chrono::high_resolution_clock::now();
     auto dt = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0);
-    std::cout << "calculated layouts - elapsed time: "  << dt.count() << " milliseconds\n";
+    Rcpp::Rcout << "calculated layouts - elapsed time: "  << dt.count() << " milliseconds\n";
 	
-	std::cout << "calculated node count " << nodes.size() << std::endl;
-	std::cout << "calculated edge count " << edges.size() << std::endl;
+	//Rcpp::Rcout << "calculated node count " << nodes.size() << std::endl;
+	//Rcpp::Rcout << "calculated edge count " << edges.size() << std::endl;
 }

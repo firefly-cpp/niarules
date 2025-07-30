@@ -2,7 +2,7 @@
 
 using namespace Rcpp;
 
-#include "radial_layout.hpp"
+#include "radial_layout.h"
 
 static int get_item_id(std::unordered_map<std::string, int> &lookup,
     std::vector<std::string> &registry,
@@ -69,7 +69,7 @@ static std::vector<Rule> df_to_rules(
 
 //' @export
 // [[Rcpp::export]]
-List wrapped_buildRadialPlots(const DataFrame& rulesDF, int grid_size)
+List buildRadialPlots(const DataFrame& rulesDF, int grid_size)
 {
 	std::unordered_map<std::string, int> item_to_id;
 	std::vector<std::string> id_to_item;
