@@ -6,6 +6,8 @@
 #include <ranges>
 // #include <bits/valarray_after.h>
 
+#include <Rcpp.h>
+
 void RadialLayoutBuilder::build(
     const std::vector<Rule> &rules,
     int grid_size,
@@ -140,6 +142,27 @@ RadialLayoutBuilder::groupPathsByConsequent(
                 accumulated_metrics[prefix].push_back(metric);
             }
         }
+		
+		auto &out = paths_per_consequent[rhs];
+		out.reserve(accumulated_metrics.size());
+		for (auto const& [rulePath, metrics] : accumulated_metrics) {
+			Path p;
+			p.path_id = rulePath;
+		
+			double sum_conf = 0, sum_lift = 0, sum_support = 0;
+			for (auto const &m : metrics) {
+				sum_conf    += m.confidence;
+				sum_lift    += m.lift;
+				sum_support += m.support;
+		    }
+			
+			size_t N = metrics.size();
+			p.confidence = (N ? sum_conf    / N : 0.0);
+			p.lift       = (N ? sum_lift    / N : 0.0);
+			p.support    = (N ? sum_support / N : 0.0);
+		
+			out.push_back(std::move(p));
+		}
     }
     return paths_per_consequent;
 }
