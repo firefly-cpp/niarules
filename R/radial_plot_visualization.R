@@ -1,13 +1,28 @@
-#' Render radial plots in 3D
+#' @title Render a Radial Plot in 3D Using rgl
 #'
-#' TODO: full description here
+#' @description
+#' Renders a radial network layout in an interactive 3D plot using the \pkg{rgl} package.
+#' This includes a customizable grid, edges between nodes (with optional styling), and nodes
+#' themselves (with optional color coding based on features).
 #'
-#' @param nodes TODO
-#' @param edges TODO
-#' @param grid_size TODO
-#' @param feature_cols TODO
-#' @param grid_color TODO
-#' @param legend TODO
+#' @param nodes A data frame containing node positions and properties. Must include columns:
+#'   \code{x}, \code{y}, \code{z}, \code{radius}, and \code{item}.
+#' @param edges A data frame containing edge positions and styles. Must include columns:
+#'   \code{x}, \code{y}, \code{z}, \code{x_end}, \code{y_end}, \code{z_end}, and optionally
+#'   \code{color} and \code{width}.
+#' @param grid_size Integer indicating the number of grid cells in each dimension of the layout.
+#'   This determines the size and scale of the background grid.
+#' @param feature_cols Optional named vector mapping node item names to colors. If provided, it is
+#'   used to color the nodes accordingly. Defaults to \code{NULL} (black nodes).
+#' @param grid_color Color of the background grid lines. Defaults to \code{"grey80"}.
+#' @param legend Logical indicating whether to display a legend. Currently not implemented. Defaults to \code{FALSE}.
+#'
+#' @details
+#' The function first opens a new rgl window, positions the 3D camera, and draws a grid on the x–z plane.
+#' Edges are drawn using \code{segments3d()} and can be styled by width and color. Nodes are drawn
+#' as 3D spheres via \code{spheres3d()}.
+#'
+#' The x and z axes are highlighted in red and blue, respectively, to assist orientation.
 #'
 #' @importFrom rgl open3d par3d aspect3d lines3d segments3d spheres3d view3d
 #' @importFrom dplyr filter distinct

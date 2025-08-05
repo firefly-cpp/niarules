@@ -2,7 +2,7 @@
 % Please edit documentation in R/radial_plot_visualization.R
 \name{render_radial_rgl}
 \alias{render_radial_rgl}
-\title{Render radial plots in 3D}
+\title{Render a Radial Plot in 3D Using rgl}
 \usage{
 render_radial_rgl(
   nodes,
@@ -14,18 +14,32 @@ render_radial_rgl(
 )
 }
 \arguments{
-\item{nodes}{TODO}
+\item{nodes}{A data frame containing node positions and properties. Must include columns:
+\code{x}, \code{y}, \code{z}, \code{radius}, and \code{item}.}
 
-\item{edges}{TODO}
+\item{edges}{A data frame containing edge positions and styles. Must include columns:
+\code{x}, \code{y}, \code{z}, \code{x_end}, \code{y_end}, \code{z_end}, and optionally
+\code{color} and \code{width}.}
 
-\item{grid_size}{TODO}
+\item{grid_size}{Integer indicating the number of grid cells in each dimension of the layout.
+This determines the size and scale of the background grid.}
 
-\item{feature_cols}{TODO}
+\item{feature_cols}{Optional named vector mapping node item names to colors. If provided, it is
+used to color the nodes accordingly. Defaults to \code{NULL} (black nodes).}
 
-\item{grid_color}{TODO}
+\item{grid_color}{Color of the background grid lines. Defaults to \code{"grey80"}.}
 
-\item{legend}{TODO}
+\item{legend}{Logical indicating whether to display a legend. Currently not implemented. Defaults to \code{FALSE}.}
 }
 \description{
-TODO: full description here
+Renders a radial network layout in an interactive 3D plot using the \pkg{rgl} package.
+This includes a customizable grid, edges between nodes (with optional styling), and nodes
+themselves (with optional color coding based on features).
+}
+\details{
+The function first opens a new rgl window, positions the 3D camera, and draws a grid on the x–z plane.
+Edges are drawn using \code{segments3d()} and can be styled by width and color. Nodes are drawn
+as 3D spheres via \code{spheres3d()}.
+
+The x and z axes are highlighted in red and blue, respectively, to assist orientation.
 }
