@@ -9,6 +9,8 @@
 #include <functional>
 #include <chrono>
 
+#include "RadialLayoutBuilder.h"
+
 void build_layout(
     std::vector<Rule> const &rules,
     int grid_size,
@@ -325,7 +327,8 @@ void buildRadialPlots(
 
     const auto t0 = std::chrono::high_resolution_clock::now();
 
-    build_layout(rules, grid_size, 0.5, id_to_item, nodes, edges);
+    // build_layout(rules, grid_size, 0.5, id_to_item, nodes, edges);
+    RadialLayoutBuilder::build(rules, grid_size, 0.5, id_to_item, nodes, edges);
 
     const auto t1 = std::chrono::high_resolution_clock::now();
     const auto dt = std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0);
