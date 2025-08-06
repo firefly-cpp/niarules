@@ -39,6 +39,10 @@ jobs:
           http-user-agent: ${{ matrix.config.http-user-agent }}
           use-public-rspm: true
 
+      - name: Set RGL_USE_NULL for headless environments
+        if: matrix.config.os != 'windows-latest'
+        run: echo "RGL_USE_NULL=true" >> $GITHUB_ENV
+
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           extra-packages: any::rcmdcheck
