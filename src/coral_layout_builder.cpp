@@ -104,8 +104,7 @@ namespace coral_plots {
         return items;
     }
 
-    std::unordered_map<int, std::vector<CoralLayoutBuilder::Path> >
-    CoralLayoutBuilder::groupPathsByConsequent(
+    std::unordered_map<int, std::vector<CoralLayoutBuilder::Path> > CoralLayoutBuilder::groupPathsByConsequent(
         std::unordered_map<int, Rule> &rules_by_id,
         const std::unordered_map<int, std::vector<int> > &rules_by_consequent,
         const std::vector<std::string> &id_to_item,
