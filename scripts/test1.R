@@ -35,6 +35,6 @@ wdf <- get_rules_wide(rules_df)
 n_plots   <- length(unique(wdf$rhs))
 grid_size <- ceiling(sqrt(n_plots))
 
-res <- buildRadialPlots(wdf, grid_size)
-render_radial_rgl(res$nodes, res$edges, grid_size, NULL, "lightblue", FALSE)
+res <- buildCoralPlots(wdf, grid_size)
+render_coral_rgl(res$nodes, res$edges, grid_size, NULL, "lightblue", FALSE)
 

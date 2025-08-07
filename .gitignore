@@ -51,3 +51,7 @@ rsconnect/
 
 # generated output file
 association_rules_output.csv
+
+# C++ and dll generation
+*.dll
+*.o
