@@ -1,10 +1,10 @@
-#' @title Build Data for Radial Plot Visualization from Association Rules
+#' @title Build Data for Coral Plot Visualization from Association Rules
 #'
 #' @description
 #' Converts an \code{arules}-like object into a structured list containing nodes, edges, and grid size
-#' suitable for rendering with radial plot functions (e.g., \code{render_radial_rgl}).
+#' suitable for rendering with coral plot functions (e.g., \code{render_coral_rgl}).
 #' Internally, this function serializes the rules to a temporary CSV file, processes them into
-#' wide format, and calls \code{niarules::buildRadialPlots()} to compute layout geometry.
+#' wide format, and calls \code{niarules::buildCoralPlots()} to compute layout geometry.
 #'
 #' @param arules An object containing association rules, typically of class \code{rules} from the
 #'   \pkg{arules} or \pkg{niarules} package.
@@ -23,7 +23,7 @@
 #'   \item Reads the CSV back in as a standard R data frame.
 #'   \item Transforms the data into a wide format with one row per rule and columns \code{lhs_1}, \code{lhs_2}, etc.
 #'   \item Computes the number of unique plots needed (based on consequents) and determines a square grid size.
-#'   \item Calls \code{niarules::buildRadialPlots()} to compute the layout.
+#'   \item Calls \code{niarules::buildCoralPlots()} to compute the layout.
 #' }
 #'
 #' This transformation is necessary to bridge the format expected by the layout algorithm
@@ -31,10 +31,10 @@
 #'
 #' @importFrom dplyr mutate select group_by arrange ungroup
 #' @importFrom tidyr separate_rows pivot_wider
-#' @importFrom niarules write_association_rules_to_csv buildRadialPlots
+#' @importFrom niarules write_association_rules_to_csv buildCoralPlots
 #' @importFrom utils read.csv
 #' @export
-build_radial_plots <- function(arules) {
+build_coral_plots <- function(arules) {
   # write to a short‐lived CSV and arrange for cleanup
   tmp_csv <- tempfile(fileext = ".csv")
   on.exit(unlink(tmp_csv), add = TRUE)
@@ -48,7 +48,7 @@ build_radial_plots <- function(arules) {
   # read it back in as a plain data.frame
   rules_df <- utils::read.csv(tmp_csv, stringsAsFactors = FALSE)
   
-  # pivot to the wide format buildRadialPlots() expects
+  # pivot to the wide format buildCoralPlots() expects
   wdf <- rules_df %>%
     mutate(
       rule_id = row_number(),
@@ -83,7 +83,7 @@ build_radial_plots <- function(arules) {
   
   n_plots   <- length(unique(wdf$rhs))
   grid_size <- ceiling(sqrt(n_plots))
-  layout <- niarules::buildRadialPlots(wdf, grid_size)
+  layout <- niarules::buildCoralPlots(wdf, grid_size)
   
   list(
     nodes     = layout$nodes,

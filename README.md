@@ -130,6 +130,39 @@ print_association_rules(de$arules, is_time_series = TRUE, timestamps = data[["ti
 write_association_rules_to_csv(de$arules, "Rules.csv", is_time_series = TRUE, timestamps = data[["timestamp"]])
 ```
 
+### Basic run example (coral plot rendering)
+
+```R
+library(niarules)
+
+data_raw <- niarules::read_dataset("inst/extdata/Abalone.csv")
+features <- niarules::extract_feature_info(data_raw)
+d <- niarules::problem_dimension(features, is_time_series = FALSE)
+
+de <- niarules::differential_evolution(
+  d        = d,
+  np       = 30,
+  f        = 0.5,
+  cr       = 0.9,
+  nfes     = 1000,
+  features = features,
+  data     = data_raw,
+  is_time_series = FALSE
+)
+
+# Use the Differential Evolution data to build the plotting data
+plots <- build_coral_plots(de$arules)
+
+# Render the data with rgl
+render_coral_rgl(
+  plots$nodes, plots$edges,
+  plots$grid_size,
+  feature_cols = NULL,
+  grid_color   = "lightblue",
+  legend       = FALSE
+)
+```
+
 ## 📚 Reference Papers
 
 Ideas are based on the following research papers:

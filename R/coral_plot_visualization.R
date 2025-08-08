@@ -1,7 +1,7 @@
-#' @title Render a Radial Plot in 3D Using rgl
+#' @title Render a Coral Plot in 3D Using rgl
 #'
 #' @description
-#' Renders a radial network layout in an interactive 3D plot using the \pkg{rgl} package.
+#' Renders a coral network layout in an interactive 3D plot using the \pkg{rgl} package.
 #' This includes a customizable grid, edges between nodes (with optional styling), and nodes
 #' themselves (with optional color coding based on features).
 #'
@@ -27,7 +27,7 @@
 #' @importFrom rgl open3d par3d aspect3d lines3d segments3d spheres3d view3d
 #' @importFrom dplyr filter distinct
 #' @export
-render_radial_rgl <- function(
+render_coral_rgl <- function(
     nodes,
     edges,
     grid_size,

@@ -2,7 +2,7 @@
 
 using namespace Rcpp;
 
-#include "radial_layout.h"
+#include "coral_plots.h"
 
 /// @brief Retrieves the integer ID for a given item string, adding it to the map and registry if not already present.
 ///
@@ -37,25 +37,25 @@ static int get_item_id(
 ///
 /// Each unique item is assigned an integer ID using the provided lookup and registry.
 ///
-/// @param df An Rcpp DataFrame containing the association rules in wide format.
+/// @param df A Rcpp DataFrame containing the association rules in wide format.
 /// @param item_to_id Map from item string to unique integer ID.
 /// @param id_to_item Vector of item strings indexed by their assigned ID.
 /// @return A vector of Rule objects representing the parsed rules.
-static std::vector<Rule> df_to_rules(
+static std::vector<coral_plots::Rule> df_to_rules(
     const DataFrame &df,
     std::unordered_map<std::string, int> &item_to_id,
     std::vector<std::string> &id_to_item
 ) {
     // names of the cols = hardcoded
-    Rcpp::IntegerVector ids = df["rule_id"];
-    Rcpp::CharacterVector rhs_chr = df["rhs"];
-    Rcpp::NumericVector supports = df["support"];
-    Rcpp::NumericVector confidences = df["confidence"];
-    Rcpp::NumericVector lifts = df["lift"];
-    Rcpp::IntegerVector lengths = df["antecedent_length"];
+    IntegerVector ids = df["rule_id"];
+    CharacterVector rhs_chr = df["rhs"];
+    NumericVector supports = df["support"];
+    NumericVector confidences = df["confidence"];
+    NumericVector lifts = df["lift"];
+    IntegerVector lengths = df["antecedent_length"];
 
     const size_t n = ids.size();
-    std::vector<Rule> out;
+    std::vector<coral_plots::Rule> out;
     out.reserve(n);
 
     for (size_t i = 0; i < n; ++i) {
@@ -63,19 +63,19 @@ static std::vector<Rule> df_to_rules(
         const int rhs_id = get_item_id(item_to_id, id_to_item,
                                        static_cast<std::string>(rhs_chr[i]));
 
-        // get the lhs/antecendent cols, convert strings to IDs
+        // get the lhs/antecedent cols, convert strings to IDs
         const int k = lengths[i];
         std::vector<int> ant;
         ant.reserve(k);
         for (int j = 1; j <= k; ++j) {
             std::string col = "lhs_" + std::to_string(j);
-            Rcpp::CharacterVector lhs_col = df[col];
+            CharacterVector lhs_col = df[col];
             int lhs_id = get_item_id(item_to_id, id_to_item,
                                      static_cast<std::string>(lhs_col[i]));
             ant.push_back(lhs_id);
         }
 
-        Rule r;
+        coral_plots::Rule r;
         r.rule_id = ids[i];
         r.consequent = rhs_id;
         r.antecedent = std::move(ant);
@@ -88,13 +88,13 @@ static std::vector<Rule> df_to_rules(
 }
 
 
-//' @title Entry point for R to generate radial plot data from a set of association rules.
+//' @title Entry point for R to generate coral plot data from a set of association rules.
 //'
 //' @description This function takes a data frame of association rules and produces two data frames:
-//' one for the nodes and one for the edges of a radial plot. It acts as a wrapper that:
+//' one for the nodes and one for the edges of a coral plot. It acts as a wrapper that:
 //' \itemize{
 //'    \item Converts the input R data frame to internal Rule objects.
-//'    \item Constructs the radial layout by calling the lower-level `buildRadialPlots` function.
+//'    \item Constructs the coral layout by calling the lower-level `buildCoralPlots` function.
 //'    \item Converts the resulting nodes and edges into R-compatible data frames.
 //' }
 //'
@@ -108,17 +108,17 @@ static std::vector<Rule> df_to_rules(
 //' }
 //' @export
 // [[Rcpp::export]]
-List buildRadialPlots(const DataFrame &rulesDF, int grid_size) {
+List buildCoralPlots(const DataFrame &rulesDF, int grid_size) {
     std::unordered_map<std::string, int> item_to_id;
     std::vector<std::string> id_to_item;
 
     // convert wide data.frame into vector<Rule>
-    std::vector<Rule> rules = df_to_rules(rulesDF, item_to_id, id_to_item);
+    std::vector<coral_plots::Rule> rules = df_to_rules(rulesDF, item_to_id, id_to_item);
 
     // call the layout algorithm
-    std::vector<Edge> edges;
-    std::vector<Node> nodes;
-    buildRadialPlots(rules, edges, nodes, item_to_id, id_to_item, grid_size);
+    std::vector<coral_plots::Edge> edges;
+    std::vector<coral_plots::Node> nodes;
+    coral_plots::buildCoralPlots(rules, edges, nodes, item_to_id, id_to_item, grid_size);
 
     // convert edges back to R
     int E = edges.size();
