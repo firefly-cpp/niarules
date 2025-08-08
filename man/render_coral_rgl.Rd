@@ -8,7 +8,6 @@ render_coral_rgl(
   nodes,
   edges,
   grid_size,
-  feature_cols = NULL,
   grid_color = "grey80",
   legend = FALSE
 )
@@ -24,12 +23,12 @@ render_coral_rgl(
 \item{grid_size}{Integer indicating the number of grid cells in each dimension of the layout.
 This determines the size and scale of the background grid.}
 
-\item{feature_cols}{Optional named vector mapping node item names to colors. If provided, it is
-used to color the nodes accordingly. Defaults to \code{NULL} (black nodes).}
-
 \item{grid_color}{Color of the background grid lines. Defaults to \code{"grey80"}.}
 
 \item{legend}{Logical indicating whether to display a legend. Currently not implemented. Defaults to \code{FALSE}.}
+
+\item{feature_cols}{Optional named vector mapping node item names to colors. If provided, it is
+used to color the nodes accordingly. Defaults to \code{NULL} (black nodes).}
 }
 \description{
 Renders a coral network layout in an interactive 3D plot using the \pkg{rgl} package.

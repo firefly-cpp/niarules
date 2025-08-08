@@ -4,7 +4,14 @@
 \alias{buildCoralPlots}
 \title{Entry point for R to generate coral plot data from a set of association rules.}
 \usage{
-buildCoralPlots(rulesDF, grid_size)
+buildCoralPlots(
+  rulesDF,
+  grid_size,
+  edge_gradient = as.character(c("#2c7bb6", "#d7191c")),
+  edge_metric = "support",
+  item_types = NULL,
+  type_colors = NULL
+)
 }
 \arguments{
 \item{rulesDF}{A wide-format DataFrame representing association rules (as typically produced in R).}

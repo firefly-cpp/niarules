@@ -20,7 +20,7 @@
 #'    \item \code{nodes}: DataFrame with position, radius, ID, and item label for each node.
 #' }
 #' @export
-buildCoralPlots <- function(rulesDF, grid_size) {
-    .Call(`_niarules_buildCoralPlots`, rulesDF, grid_size)
+buildCoralPlots <- function(rulesDF, grid_size, edge_gradient = as.character( c("#2c7bb6", "#d7191c")), edge_metric = "support", item_types = NULL, type_colors = NULL) {
+    .Call(`_niarules_buildCoralPlots`, rulesDF, grid_size, edge_gradient, edge_metric, item_types, type_colors)
 }
 

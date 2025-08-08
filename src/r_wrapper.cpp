@@ -108,7 +108,85 @@ static std::vector<coral_plots::Rule> df_to_rules(
 //' }
 //' @export
 // [[Rcpp::export]]
-List buildCoralPlots(const DataFrame &rulesDF, int grid_size) {
+List buildCoralPlots(const DataFrame& rulesDF, int grid_size,
+    Rcpp::CharacterVector edge_gradient = Rcpp::CharacterVector::create("#2c7bb6", "#d7191c"),
+    std::string edge_metric = "support",
+    Rcpp::Nullable<Rcpp::DataFrame> item_types = R_NilValue,
+    Rcpp::Nullable<Rcpp::DataFrame> type_colors = R_NilValue) {
+
+    // --- helpers for color interpolation ---
+    auto clamp01 = [](double t) { return t < 0 ? 0.0 : (t > 1 ? 1.0 : t); };
+
+    auto hexToRGB = [](const std::string& hex) {
+        // supports #RRGGBB or #AARRGGBB; ignores alpha
+        int r = 0, g = 0, b = 0;
+        if (hex.size() == 7 && hex[0] == '#') {
+            r = std::stoi(hex.substr(1, 2), nullptr, 16);
+            g = std::stoi(hex.substr(3, 2), nullptr, 16);
+            b = std::stoi(hex.substr(5, 2), nullptr, 16);
+        }
+        else if (hex.size() == 9 && hex[0] == '#') {
+            r = std::stoi(hex.substr(3, 2), nullptr, 16);
+            g = std::stoi(hex.substr(5, 2), nullptr, 16);
+            b = std::stoi(hex.substr(7, 2), nullptr, 16);
+        }
+        else {
+            // default to black if weird input
+            r = g = b = 0;
+        }
+        return std::tuple<int, int, int>(r, g, b);
+        };
+
+    auto rgbToHex = [](int r, int g, int b) {
+        char buf[8];
+        std::snprintf(buf, sizeof(buf), "#%02X%02X%02X", r, g, b);
+        return std::string(buf);
+        };
+
+    auto lerp = [](double a, double b, double t) { return a + (b - a) * t; };
+
+    auto samplePalette = [&](double t, const std::vector<std::tuple<int, int, int>>& pal) {
+        if (pal.empty()) return std::string("#000000");
+        if (pal.size() == 1) {
+            auto [r, g, b] = pal.front();
+            return rgbToHex(r, g, b);
+        }
+        t = clamp01(t);
+        const double pos = t * (pal.size() - 1);
+        const size_t i = static_cast<size_t>(std::floor(pos));
+        const size_t j = std::min(i + 1, pal.size() - 1);
+        const double f = pos - i;
+        auto [r1, g1, b1] = pal[i];
+        auto [r2, g2, b2] = pal[j];
+        int r = static_cast<int>(std::round(lerp(r1, r2, f)));
+        int g = static_cast<int>(std::round(lerp(g1, g2, f)));
+        int b = static_cast<int>(std::round(lerp(b1, b2, f)));
+        return rgbToHex(r, g, b);
+        };
+    // --- end helpers ---
+
+    // ---- Build lookup: item -> type ----
+    std::unordered_map<std::string, std::string> item2type;
+    if (item_types.isNotNull()) {
+        DataFrame it = item_types.get();
+        CharacterVector items = it["item"];
+        CharacterVector types = it["type"];
+        for (int i = 0; i < items.size(); ++i) {
+            item2type[as<std::string>(items[i])] = as<std::string>(types[i]);
+        }
+    }
+
+    // ---- Build lookup: type -> color ----
+    std::unordered_map<std::string, std::string> type2color;
+    if (type_colors.isNotNull()) {
+        DataFrame tc = type_colors.get();
+        CharacterVector t = tc["type"];
+        CharacterVector c = tc["color"];
+        for (int i = 0; i < t.size(); ++i) {
+            type2color[as<std::string>(t[i])] = as<std::string>(c[i]);
+        }
+    }
+
     std::unordered_map<std::string, int> item_to_id;
     std::vector<std::string> id_to_item;
 
@@ -121,9 +199,38 @@ List buildCoralPlots(const DataFrame &rulesDF, int grid_size) {
     coral_plots::buildCoralPlots(rules, edges, nodes, item_to_id, id_to_item, grid_size);
 
     // convert edges back to R
-    int E = edges.size();
+    // choose accessor for metric
+    std::function<double(const coral_plots::Edge&)> getMetric;
+    if (edge_metric == "confidence") {
+        getMetric = [](const coral_plots::Edge& e) { return e.confidence; };
+    }
+    else if (edge_metric == "lift") {
+        getMetric = [](const coral_plots::Edge& e) { return e.lift; };
+    }
+    else {
+        edge_metric = "support";
+        getMetric = [](const coral_plots::Edge& e) { return e.support; };
+    }
+
+    // build numeric ranges for normalization
+    int E = static_cast<int>(edges.size());
+    double minV = std::numeric_limits<double>::infinity();
+    double maxV = -std::numeric_limits<double>::infinity();
+    for (const auto& e : edges) {
+        const double v = getMetric(e);
+        if (v < minV) minV = v;
+        if (v > maxV) maxV = v;
+    }
+    const bool constant = !(maxV > minV);
+
+    // parse palette
+    std::vector<std::tuple<int, int, int>> pal;
+    pal.reserve(edge_gradient.size());
+    for (auto& s : edge_gradient) pal.push_back(hexToRGB(as<std::string>(s)));
+
+    // convert edges -> R
     NumericVector x_start(E), y_start(E), z_start(E), x_end(E), y_end(E), z_end(E), width(E);
-    CharacterVector color(E, "green");
+    CharacterVector color(E);
     for (int i = 0; i < E; ++i) {
         x_start[i] = edges[i].x_start;
         y_start[i] = edges[i].y_start;
@@ -132,6 +239,9 @@ List buildCoralPlots(const DataFrame &rulesDF, int grid_size) {
         y_end[i] = edges[i].y_end;
         z_end[i] = edges[i].z_end;
         width[i] = edges[i].line_width;
+
+        double t = constant ? 0.5 : (getMetric(edges[i]) - minV) / (maxV - minV);
+        color[i] = samplePalette(t, pal);
     }
     DataFrame edgesDF = DataFrame::create(
         _["x"] = x_start,
@@ -141,36 +251,61 @@ List buildCoralPlots(const DataFrame &rulesDF, int grid_size) {
         _["y_end"] = y_end,
         _["z_end"] = z_end,
         _["width"] = width,
-        _["color"] = color
+        _["color"] = color,
+        _["stringsAsFactors"] = false
     );
 
     // convert nodes back to R
-    int N = nodes.size();
+    // add type + color (by type)
+    int N = static_cast<int>(nodes.size());
     NumericVector x(N), y(N), z(N), radius(N), x_offset(N), z_offset(N);
     IntegerVector id(N);
-    CharacterVector item(N);
+    CharacterVector item(N), node_type(N), node_color(N);
+
     for (int i = 0; i < N; ++i) {
         radius[i] = nodes[i].node_radius;
-        x[i] = nodes[i].x;
-        y[i] = nodes[i].y;
-        z[i] = nodes[i].z;
-        x_offset[i] = nodes[i].x_offset;
-        z_offset[i] = nodes[i].z_offset;
+        x[i] = nodes[i].x; y[i] = nodes[i].y; z[i] = nodes[i].z;
+        x_offset[i] = nodes[i].x_offset; z_offset[i] = nodes[i].z_offset;
         id[i] = nodes[i].item;
-        item[i] = id_to_item[nodes[i].item];
+
+        const std::string item_s = id_to_item[nodes[i].item];
+        item[i] = item_s;
+
+        Rcpp::Rcout << "item " << item_s << std::endl;
+
+        // type lookup
+        std::string t = "unknown";
+        auto it = item2type.find(item_s);
+        if (it != item2type.end()) t = it->second;
+        node_type[i] = t;
+
+        Rcpp::Rcout << "node type " << t << std::endl;
+
+        // color lookup by type (fallback to black)
+        std::string col = "#000000";
+        auto jt = type2color.find(t);
+        if (jt != type2color.end()) col = jt->second;
+        node_color[i] = col;
+
+        Rcpp::Rcout << "node color " << col << std::endl;
     }
+
     DataFrame nodesDF = DataFrame::create(
         _["x"] = x,
         _["y"] = y,
         _["z"] = z,
         _["radius"] = radius,
         _["id"] = id,
-        _["item"] = item
+        _["item"] = item,
+        _["type"] = node_type,
+        _["color"] = node_color
     );
 
     // and done
     return List::create(
         _["edges"] = edgesDF,
-        _["nodes"] = nodesDF
+        _["nodes"] = nodesDF,
+        _["edge_metric"] = edge_metric,
+        _["edge_range"] = NumericVector::create(minV, maxV)
     );
 }
