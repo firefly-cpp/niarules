@@ -17,6 +17,7 @@ de <- niarules::differential_evolution(
 
 plots <- build_coral_plots(de$arules)
 
+plots <- build_coral_plots(NULL)
 #plots$nodes
 #plots$edges
 #plots$grid_size
@@ -24,7 +25,7 @@ plots <- build_coral_plots(de$arules)
 render_coral_rgl(
   plots$nodes, plots$edges,
   plots$grid_size,
-  grid_color   = "lightblue",
+  grid_color   = "lightgray",
   legend       = FALSE
 )
 
