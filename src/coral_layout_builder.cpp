@@ -1,4 +1,5 @@
 ﻿#include "coral_layout_builder.h"
+#include "string_splitter.h"
 
 #include <algorithm>
 #include <cmath>
@@ -7,6 +8,30 @@
 #include <Rcpp.h>
 
 namespace coral_plots {
+
+    static inline std::string trim_copy(std::string s) {
+        auto not_space = [](int ch) { return !std::isspace(ch); };
+        s.erase(s.begin(), std::find_if(s.begin(), s.end(), not_space));
+        s.erase(std::find_if(s.rbegin(), s.rend(), not_space).base(), s.end());
+        return s;
+    }
+    static inline std::vector<std::string> split_comma(std::string const& s) {
+        std::vector<std::string> out;
+        std::string part;
+        std::istringstream iss(s);
+        while (std::getline(iss, part, ',')) {
+            part = trim_copy(part);
+            if (!part.empty()) out.push_back(part);
+        }
+        return out;
+    }
+    static inline std::unordered_map<std::string, int>
+        make_str2id(const std::vector<std::string>& id_to_item) {
+        std::unordered_map<std::string, int> m;
+        for (int i = 0; i < (int)id_to_item.size(); ++i) m[id_to_item[i]] = i;
+        return m;
+    }
+
     void CoralLayoutBuilder::build(
         const std::vector<Rule> &rules,
         int grid_size,
@@ -18,32 +43,62 @@ namespace coral_plots {
         auto rules_by_id = groupRulesById(rules);
         const auto rules_by_single_metrics = groupRulesBySingleMetrics(rules);
         const auto rules_by_consequent = groupRulesByConsequent(rules);
+        const auto str2id = make_str2id(id_to_item);
+
         auto paths_by_consequent = groupPathsByConsequent(rules_by_id, rules_by_consequent, id_to_item, rules_by_single_metrics);
         all_nodes.clear();
         all_edges.clear();
         unsigned plot_id = 0;
-        for (const auto &[rhs, paths]: paths_by_consequent) {
+
+        for (const auto& [rhs, paths] : paths_by_consequent) {
             double x_off = plot_id / grid_size + 0.5;
             double z_off = plot_id % grid_size + 0.5;
+
+            // split combined RHS into item IDs (if any)
+            std::vector<int> root_item_ids;
+            {
+                const std::string& rhs_str = id_to_item[rhs];
+                auto parts = split_outside_brackets(rhs_str);
+                if (parts.empty()) {
+                    root_item_ids.push_back(rhs); // no split; keep original
+                }
+                else {
+                    for (auto const& p : parts) {
+                        auto it = str2id.find(p);
+                        if (it != str2id.end()) root_item_ids.push_back(it->second);
+                    }
+                    if (root_item_ids.empty()) root_item_ids.push_back(rhs); // fallback
+                }
+            }
+
             const auto metrics_by_path_id = groupMetricsByPathID(paths);
             auto children = calculateChildren(metrics_by_path_id);
-            auto [root,leaf_counts] = calculateLeafCounts(rhs, children, metrics_by_path_id);
+            auto [root, leaf_counts] = calculateLeafCounts(rhs, children, metrics_by_path_id);
             auto [support_node, lift_node] = getSupportAndLiftNodes(metrics_by_path_id);
-            // root’s outgoing support = average over children
-            // root's lift = 0
+
+            // root’s outgoing support = avg over children; root's lift = 0
             {
-                auto const &ch = children[root];
+                auto const& ch = children[root];
                 double sum = 0;
-                for (auto const &child: ch) sum += support_node[child];
+                for (auto const& child : ch) sum += support_node[child];
                 support_node[root] = ch.empty() ? 0 : sum / ch.size();
                 lift_node[root] = 0;
             }
 
             auto max_depth = determineMaxDepth(metrics_by_path_id);
             auto [a_start, a_end] = computeAngularSpans(root, max_depth, children, leaf_counts, metrics_by_path_id);
-            auto coordinates = buildNodes(x_off, z_off, support_node, lift_node, root, max_depth, max_radius, leaf_counts, metrics_by_path_id, a_start, a_end, all_nodes);
-            buildEdges(paths, coordinates, all_edges);
 
+            auto coordinates = buildNodes(
+                x_off, z_off,
+                support_node, lift_node,
+                root, max_depth, 0.5,  // max_radius passed in earlier; keep 0.5 here consistent
+                leaf_counts, metrics_by_path_id,
+                a_start, a_end,
+                all_nodes,
+                root_item_ids               // <-- pass here
+            );
+
+            buildEdges(paths, coordinates, all_edges);
             ++plot_id;
         }
     }
@@ -271,56 +326,53 @@ namespace coral_plots {
         const std::map<RulePath, Path> &metrics_by_path_id,
         std::map<RulePath, double> a_start,
         std::map<RulePath, double> a_end,
-        std::vector<Node> &all_nodes
+        std::vector<Node> &all_nodes,
+        const std::vector<int>& root_item_ids
     ) {
-        // find global lift range for node-radius mapping
+        // find global lift range
         double min_l = 1e9, max_l = -1e9;
-        for (const auto &[_, val]: lift_node) {
-            min_l = std::min(min_l, val);
-            max_l = std::max(max_l, val);
-        }
+        for (const auto& [_, val] : lift_node) { min_l = std::min(min_l, val); max_l = std::max(max_l, val); }
 
-        // build nodes, mapping lift to radius & also capture their coords in a map
         std::map<RulePath, std::tuple<double, double, double> > coordinates;
         coordinates[root] = std::make_tuple(x_off, 0.0, z_off);
-        
-        // create a node for the root (RHS-only)
-        {
-            //constexpr double min_r_px = 0.005;
-            //constexpr double max_r_px = 0.02;
 
+        // emit visible step-0 nodes
+        // if we have multiple RHS items, make one node per item at the center; otherwise, keep the single combined root node.
+        if (root_item_ids.size() <= 1) {
             Node node;
             node.path_id = root;
-            node.step = 0; // its in the center
-            node.item = root.back(); // TODO: I need to fix this
+            node.step = 0;
+            node.item = root.back();     // combined rhs id
             node.leafcount = leaf_counts[root];
             node.support_node = support_node[root];
             node.lift_node = lift_node[root];
-
-            node.angle_start = 0.0;
-            node.angle_end = 2 * PI;
-            node.angle = 0.0;
-
+            node.angle_start = 0.0; node.angle_end = 2 * PI; node.angle = 0.0;
             node.radius = 0.0;
-            node.x_offset = x_off;
-            node.z_offset = z_off;
-            node.x = x_off;
-            node.y = 0.0;
-            node.z = z_off;
-
-            // set this to constant for the time being, otherwise it's too small
-            node.node_radius = 0.05;
-
-            // map lift to a visible pixel radius, using global min/max
-            //if (max_l > min_l)
-            //    node.node_radius = (node.lift_node - min_l) / (max_l - min_l) * (max_r_px - min_r_px) + min_r_px;
-            //else
-            //    node.node_radius = 0.5 * (min_r_px + max_r_px);
-
+            node.x_offset = x_off; node.z_offset = z_off;
+            node.x = x_off; node.y = 0.0; node.z = z_off;
+            node.node_radius = 0.05;     // fixed so it's visible
             all_nodes.push_back(std::move(node));
         }
+        else {
+            for (int rid : root_item_ids) {
+                Node node;
+                node.path_id = root;     // logical root path for layout grouping
+                node.step = 0;
+                node.item = rid;         // show the *individual* item label/color
+                node.leafcount = leaf_counts[root];
+                node.support_node = support_node[root];
+                node.lift_node = 0.0;    // or support_node[root] if you prefer
+                node.angle_start = 0.0; node.angle_end = 2 * PI; node.angle = 0.0;
+                node.radius = 0.0;
+                node.x_offset = x_off; node.z_offset = z_off;
+                node.x = x_off; node.y = 0.0; node.z = z_off;
+                node.node_radius = 0.05; // fixed center bubble
+                all_nodes.push_back(std::move(node));
+            }
+        }
 
-        for (const auto &[pfx, _]: metrics_by_path_id) {
+        // -- non-root nodes as before --
+        for (const auto& [pfx, _] : metrics_by_path_id) {
             constexpr double min_r = 0.005;
             constexpr double max_r = 0.02;
             Node node;
@@ -334,8 +386,7 @@ namespace coral_plots {
             node.angle_end = a_end[pfx];
             node.angle = 0.5 * (node.angle_start + node.angle_end);
             node.radius = (node.step - 1.0) / (max_depth - 1.0) * max_radius;
-            node.x_offset = x_off;
-            node.z_offset = z_off;
+            node.x_offset = x_off; node.z_offset = z_off;
             node.x = node.x_offset + node.radius * std::cos(node.angle);
             node.z = node.z_offset + node.radius * std::sin(node.angle);
             node.y = 0.0;
@@ -345,8 +396,7 @@ namespace coral_plots {
             else
                 node.node_radius = 0.5 * (min_r + max_r);
 
-            coordinates[pfx] = {node.x, node.y, node.z};
-
+            coordinates[pfx] = { node.x, node.y, node.z };
             all_nodes.push_back(std::move(node));
         }
         return coordinates;

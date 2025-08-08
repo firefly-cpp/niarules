@@ -3,6 +3,7 @@
 using namespace Rcpp;
 
 #include "coral_plots.h"
+#include "string_splitter.h"
 
 /// @brief Retrieves the integer ID for a given item string, adding it to the map and registry if not already present.
 ///
@@ -59,9 +60,15 @@ static std::vector<coral_plots::Rule> df_to_rules(
     out.reserve(n);
 
     for (size_t i = 0; i < n; ++i) {
+
         // map rhs/consequent string to ID
-        const int rhs_id = get_item_id(item_to_id, id_to_item,
-                                       static_cast<std::string>(rhs_chr[i]));
+        const std::string rhs_str = static_cast<std::string>(rhs_chr[i]);
+        const int rhs_id = get_item_id(item_to_id, id_to_item, rhs_str);
+
+        // Also register individual RHS items as IDs so C++ can emit one root per item
+        for (auto const& sub : split_outside_brackets(rhs_str)) {
+            (void)get_item_id(item_to_id, id_to_item, sub);
+        }
 
         // get the lhs/antecedent cols, convert strings to IDs
         const int k = lengths[i];

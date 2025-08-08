@@ -228,7 +228,8 @@ namespace coral_plots {
             const std::map<RulePath, Path> &metrics_by_path_id,
             std::map<RulePath, double> a_start,
             std::map<RulePath, double> a_end,
-            std::vector<Node> &all_nodes
+            std::vector<Node> &all_nodes,
+            const std::vector<int>& root_item_ids
         );
 
         /// @brief Constructs edges between nodes based on rule paths and their metrics.
