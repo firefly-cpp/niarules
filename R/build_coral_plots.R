@@ -40,12 +40,13 @@ build_coral_plots <- function(
     edge_gradient   = c("#2166AC","#67A9CF","#D1E5F0","#FDDBC7","#EF8A62","#B2182B"),
     node_color_by   = c("type","item","none"),
     node_colors     = NULL,
-    palette_hcl_c   = 80,
-    palette_hcl_l   = 50
+    palette_hcl_c   = 80,   # tweakable
+    palette_hcl_l   = 50    # tweakable
 ) {
   edge_metric   <- match.arg(edge_metric)
   node_color_by <- match.arg(node_color_by)
   
+  # ---- load rules (CSV in dev mode) ----
   if (is.null(arules)) {
     rules_df <- utils::read.csv("test.csv", stringsAsFactors = FALSE)
   } else {
@@ -55,11 +56,11 @@ build_coral_plots <- function(
     rules_df <- utils::read.csv(tmp_csv, stringsAsFactors = FALSE)
   }
   
-  # one row per RULE (combined RHS kept intact)
+  # ---- one row per RULE (RHS kept intact) ----
   wdf <- .coral_build_wdf_prealloc(rules_df, .coral_split_outside_brackets)
   utils::write.csv(wdf, "wdf.csv")
   
-  # --- sanity checks (LHS only; RHS can be composite now) ---
+  # sanity: LHS columns only
   lhs_cols <- grep("^lhs_", names(wdf), value = TRUE)
   if (length(lhs_cols)) {
     lhs_counts <- rowSums(!is.na(wdf[lhs_cols]))
@@ -67,127 +68,72 @@ build_coral_plots <- function(
     stopifnot(!any(grepl(",\\s*[A-Za-z_.]", unlist(wdf[lhs_cols]), perl = TRUE), na.rm = TRUE))
   }
   
-  # --- build item_types domain (split combined RHS only for metadata) ---
-  lhs_items <- if (length(lhs_cols)) {
-    tidyr::pivot_longer(wdf[lhs_cols], dplyr::everything(),
-                        names_to = "k", values_to = "item") |>
-      dplyr::filter(!is.na(.data$item)) |>
-      dplyr::pull(.data$item)
-  } else character(0)
-  
-  rhs_items <- unlist(lapply(wdf$rhs, function(s) .coral_split_outside_brackets(s)))
-  rhs_items <- trimws(rhs_items[nzchar(rhs_items)])
-  
-  all_items <- unique(c(lhs_items, rhs_items))
-  
-  item_types <- data.frame(
-    item = all_items,
-    type = vapply(all_items, \(s)
-                  sub("\\s*(<=|>=|=|<|>|\\s+in\\s+|%in%).*$", "",
-                      sub("\\s*\\(.*$","", trimws(s)), perl = TRUE),
-                  character(1L)),
-    stringsAsFactors = FALSE
-  )
-  
-  parsed <- lapply(all_items, .coral_parse_interval_info)
-  interval_df <- do.call(rbind, lapply(seq_along(all_items), function(i) {
-    p <- parsed[[i]]
-    data.frame(
-      item           = all_items[i],
-      type           = p$type,
-      kind           = p$kind,
-      interval_low   = p$low,
-      interval_high  = p$high,
-      incl_low       = p$incl_low,
-      incl_high      = p$incl_high,
-      category_val   = p$value,
-      interval_label = p$interval_label,
-      stringsAsFactors = FALSE
-    )
-  }))
-  
-  # --- node-coloring domain ---
-  if (node_color_by == "none") {
-    item_types_df <- NULL
-    type_colors_df <- NULL
-  } else if (node_color_by == "type") {
-    labels <- sort(unique(item_types$type))
-    pal <- .coral_auto_fill_named_colors(labels, node_colors, palette_hcl_c, palette_hcl_l)
-    item_types_df <- item_types
-    type_colors_df <- data.frame(type = labels, color = pal, stringsAsFactors = FALSE)
-  } else { # "item"
-    labels <- sort(unique(item_types$item))
-    pal <- .coral_auto_fill_named_colors(labels, node_colors, palette_hcl_c, palette_hcl_l)
-    item_types_df <- transform(item_types, type = item)
-    type_colors_df <- data.frame(type = labels, color = pal, stringsAsFactors = FALSE)
-  }
-  
-  # --- robust grid size: one plot per *combined* RHS ---
+  # ---- grid size: one plot per *combined* RHS ----
   rhs_vec <- wdf$rhs
   rhs_vec <- rhs_vec[!is.na(rhs_vec) & nzchar(rhs_vec)]
   n_plots   <- max(1L, length(unique(rhs_vec)))
   grid_size <- ceiling(sqrt(n_plots))
   
-  # --- layout in C++ (it can split rhs internally for roots; colors by type there) ---
+  # ---- ask C++ for layout (let R handle colors; pass NULL for item/type colors) ----
   layout <- niarules::buildCoralPlots(
     wdf,
     grid_size     = grid_size,
     edge_gradient = edge_gradient,
     edge_metric   = edge_metric,
-    item_types    = item_types_df,
-    type_colors   = type_colors_df
+    item_types    = NULL,
+    type_colors   = NULL
   )
   
-  # --- enrich nodes with parsed interval info ---
-  nodes_aug <- dplyr::left_join(
-    layout$nodes,
-    dplyr::select(
-      interval_df,
-      item, type, kind,
-      interval_low, interval_high, incl_low, incl_high,
-      category_val, interval_label
-    ),
-    by = "item"
-  )
+  nodes <- layout$nodes
+  edges <- layout$edges
   
-  nodes_aug$interval_low  <- suppressWarnings(as.numeric(nodes_aug$interval_low))
-  nodes_aug$interval_high <- suppressWarnings(as.numeric(nodes_aug$interval_high))
-  nodes_aug$incl_low      <- as.logical(nodes_aug$incl_low)
-  nodes_aug$incl_high     <- as.logical(nodes_aug$incl_high)
+  # C++ already provided: feature, kind, interval_low/high, incl_low/high,
+  # category_val, interval_label, interval_label_short, plus color (currently black).
+  # We recolor here per node_color_by.
   
-  nodes_aug$interval_label_short <- ifelse(
-    nodes_aug$kind == "numeric",
-    paste0(
-      nodes_aug$type, " ",
-      ifelse(isTRUE(nodes_aug$incl_low), "[", "("),
-      .coral_fmt_num(nodes_aug$interval_low,  3), ", ",
-      .coral_fmt_num(nodes_aug$interval_high, 3),
-      ifelse(isTRUE(nodes_aug$incl_high), "]", ")")
-    ),
-    ifelse(
-      nodes_aug$kind == "categorical",
-      paste0(nodes_aug$type, " = ", nodes_aug$category_val),
-      nodes_aug$item
-    )
-  )
+  # ---- recolor nodes in R (optional) ----
+  if (!is.null(nodes) && nrow(nodes)) {
+    if (node_color_by == "none") {
+      # leave whatever C++ gave (likely black)
+    } else if (node_color_by == "type") {
+      # color by parsed feature name (what used to be "type" conceptually)
+      labs <- sort(unique(nodes$feature))
+      pal  <- .coral_auto_fill_named_colors(labs, node_colors, palette_hcl_c, palette_hcl_l)
+      col_map <- setNames(pal, labs)
+      nodes$color <- unname(col_map[ nodes$feature ])
+    } else { # "item"
+      labs <- sort(unique(nodes$item))
+      pal  <- .coral_auto_fill_named_colors(labs, node_colors, palette_hcl_c, palette_hcl_l)
+      col_map <- setNames(pal, labs)
+      nodes$color <- unname(col_map[ nodes$item ])
+    }
+  }
   
-  bad_intervals <- with(nodes_aug, kind == "numeric" & interval_low > interval_high)
-  stopifnot(!any(bad_intervals, na.rm = TRUE))
-  stopifnot(all(nodes_aug$x >= 0 & nodes_aug$x <= grid_size),
-            all(nodes_aug$z >= 0 & nodes_aug$z <= grid_size))
+  # extra sanity for numeric intervals and coordinates (should already be OK from C++)
+  if (!is.null(nodes) && nrow(nodes)) {
+    nodes$interval_low  <- suppressWarnings(as.numeric(nodes$interval_low))
+    nodes$interval_high <- suppressWarnings(as.numeric(nodes$interval_high))
+    nodes$incl_low  <- as.logical(nodes$incl_low)
+    nodes$incl_high <- as.logical(nodes$incl_high)
+    
+    bad_intervals <- with(nodes, kind == "numeric" & interval_low > interval_high)
+    stopifnot(!any(bad_intervals, na.rm = TRUE))
+    stopifnot(all(nodes$x >= 0 & nodes$x <= grid_size),
+              all(nodes$z >= 0 & nodes$z <= grid_size))
+  }
   
   list(
-    nodes       = nodes_aug,
-    edges       = layout$edges,
+    nodes       = nodes,
+    edges       = edges,
     edge_metric = layout$edge_metric,
     edge_range  = layout$edge_range,
     grid_size   = grid_size
   )
 }
 
-# HELPERS
+# ---- HELPERS (unchanged) ----
 
-# short numeric formatter (used for labels)
+# short numeric formatter (still used in renderer)
 .coral_fmt_num <- function(x, digits = 3) {
   ifelse(is.infinite(x),
          ifelse(x > 0, "\u221E", "-\u221E"),
@@ -219,111 +165,7 @@ build_coral_plots <- function(
   parts
 }
 
-# parse a single item label into kind/type/interval/category info
-.coral_parse_interval_info <- function(item_label) {
-  x <- trimws(item_label)
-  
-  # early out if this actually contains multiple top-level items
-  if (length(.coral_split_outside_brackets(x)) > 1L) {
-    feat <- trimws(sub("\\s*\\(.*$", "", x))
-    return(list(kind="unknown", type=feat, low=NA_real_, high=NA_real_, incl_low=NA, incl_high=NA,
-                value=NA_character_, interval_label=x))
-  }
-  
-  # feature name up to first bracket or operator
-  feat <- trimws(sub("\\s*([\\(\\[]|<=|>=|=|<|>|\\s+in\\s+|%in%).*$", "", x, perl=TRUE))
-  
-  # tolerant brackets:  (..., ...)  or  [..., ...]
-  open_pos <- regexpr("[\\(\\[]", x, perl=TRUE)
-  if (open_pos > 0) {
-    open_chr  <- substr(x, open_pos, open_pos)
-    close_chr <- if (open_chr == "(") ")" else "]"
-    close_pos <- regexpr(paste0("\\", close_chr, "(?!.*\\", close_chr, ")"), x, perl=TRUE)
-    if (close_pos > 0 && close_pos > open_pos) {
-      inside <- substr(x, open_pos + 1L, close_pos - 1L)
-      cp <- regexpr(",", inside, fixed=TRUE)
-      if (cp > 0) {
-        lo <- trimws(substr(inside, 1L, cp - 1L))
-        hi <- trimws(substr(inside, cp + 1L, nchar(inside)))
-        low  <- suppressWarnings(as.numeric(lo))
-        high <- suppressWarnings(as.numeric(hi))
-        if (!is.na(low) && !is.na(high)) {
-          incl_low  <- (open_chr == "[")
-          incl_high <- (close_chr == "]")
-          return(list(
-            kind="numeric", type=feat,
-            low=low, high=high, incl_low=incl_low, incl_high=incl_high,
-            value=NA_character_,
-            interval_label = sprintf("%s %s%s, %s%s", feat, open_chr, lo, hi, close_chr)
-          ))
-        }
-      }
-    }
-  }
-  
-  # relational:  Feature <= v, >= v, < v, > v, = v
-  m <- regexec("^\\s*([^<>=%]+?)\\s*(<=|>=|=|<|>)\\s*([^,}]+)\\s*$", x)
-  g <- regmatches(x, m)[[1]]
-  if (length(g) == 4) {
-    feat2 <- trimws(g[2]); op <- g[3]; val <- trimws(g[4])
-    vnum <- suppressWarnings(as.numeric(val))
-    if (!is.na(vnum) && op %in% c("<","<=",">",">=")) {
-      if (op %in% c("<","<=")) {
-        low <- -Inf; high <- vnum; incl_low <- FALSE; incl_high <- (op=="<=")
-      } else {
-        low <- vnum; high <-  Inf; incl_low <- (op==">="); incl_high <- FALSE
-      }
-      return(list(
-        kind="numeric", type=feat2,
-        low=low, high=high, incl_low=incl_low, incl_high=incl_high,
-        value=NA_character_,
-        interval_label = sprintf("%s %s %s", feat2, op, val)
-      ))
-    } else if (op == "=") {
-      return(list(
-        kind="categorical", type=feat2,
-        low=NA_real_, high=NA_real_, incl_low=NA, incl_high=NA,
-        value=val,
-        interval_label = sprintf("%s = %s", feat2, val)
-      ))
-    }
-  }
-  
-  # set:  Feature in {A,B}
-  m <- regexec("^\\s*([^<>=%]+?)\\s*(?:in|%in%)\\s*\\{(.+)\\}\\s*$", x, perl=TRUE)
-  g <- regmatches(x, m)[[1]]
-  if (length(g) == 3) {
-    feat2 <- trimws(g[2]); vals <- trimws(strsplit(g[3], ",")[[1]])
-    return(list(
-      kind="categorical", type=feat2,
-      low=NA_real_, high=NA_real_, incl_low=NA, incl_high=NA,
-      value=paste(vals, collapse=", "),
-      interval_label=sprintf("%s in {%s}", feat2, paste(vals, collapse=", "))
-    ))
-  }
-  
-  # fallback
-  list(kind="unknown", type=feat,
-       low=NA_real_, high=NA_real_, incl_low=NA, incl_high=NA,
-       value=NA_character_, interval_label=x)
-}
-
-# color helper: honor user map first, auto-fill the rest with HCL
-.coral_auto_fill_named_colors <- function(labels, user_map = NULL, hcl_c = 80, hcl_l = 50) {
-  out <- rep(NA_character_, length(labels)); names(out) <- labels
-  if (!is.null(user_map)) {
-    m <- intersect(names(user_map), labels)
-    out[m] <- as.character(user_map[m])
-  }
-  miss <- which(is.na(out) | !nzchar(out))
-  if (length(miss)) {
-    k <- length(miss)
-    out[miss] <- grDevices::hcl(h = seq(15, 375, length.out = k + 1)[1:k], c = hcl_c, l = hcl_l)
-  }
-  unname(out)
-}
-
-# build the wide DF expected by C++ (one row per (rule, RHS item))
+# build the wide DF expected by C++ (one row per rule; RHS kept combined)
 .coral_build_wdf_prealloc <- function(rules_df, split_fun = .coral_split_outside_brackets) {
   n <- nrow(rules_df)
   
@@ -366,6 +208,21 @@ build_coral_plots <- function(
                    stringsAsFactors = FALSE)
   if (max_lhs > 0L) df <- cbind(df, as.data.frame(lhs_mat, stringsAsFactors = FALSE))
   
+  # basic sanity
   stopifnot(is.integer(df$rule_id), !anyDuplicated(df$rule_id))
   df
+}
+# color helper: honor user map first, auto-fill the rest with HCL
+.coral_auto_fill_named_colors <- function(labels, user_map = NULL, hcl_c = 80, hcl_l = 50) {
+  out <- rep(NA_character_, length(labels)); names(out) <- labels
+  if (!is.null(user_map)) {
+    m <- intersect(names(user_map), labels)
+    out[m] <- as.character(user_map[m])
+  }
+  miss <- which(is.na(out) | !nzchar(out))
+  if (length(miss)) {
+    k <- length(miss)
+    out[miss] <- grDevices::hcl(h = seq(15, 375, length.out = k + 1)[1:k], c = hcl_c, l = hcl_l)
+  }
+  unname(out)
 }

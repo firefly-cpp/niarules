@@ -229,6 +229,7 @@ namespace coral_plots {
             std::map<RulePath, double> a_start,
             std::map<RulePath, double> a_end,
             std::vector<Node> &all_nodes,
+            const std::vector<std::string>& id_to_item,
             const std::vector<int>& root_item_ids
         );
 

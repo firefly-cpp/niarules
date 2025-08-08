@@ -1,5 +1,6 @@
 ﻿#include "coral_layout_builder.h"
 #include "string_splitter.h"
+#include "interval_parser.h"
 
 #include <algorithm>
 #include <cmath>
@@ -95,6 +96,7 @@ namespace coral_plots {
                 leaf_counts, metrics_by_path_id,
                 a_start, a_end,
                 all_nodes,
+                id_to_item,
                 root_item_ids               // <-- pass here
             );
 
@@ -327,6 +329,7 @@ namespace coral_plots {
         std::map<RulePath, double> a_start,
         std::map<RulePath, double> a_end,
         std::vector<Node> &all_nodes,
+        const std::vector<std::string>& id_to_item,
         const std::vector<int>& root_item_ids
     ) {
         // find global lift range
@@ -351,6 +354,17 @@ namespace coral_plots {
             node.x_offset = x_off; node.z_offset = z_off;
             node.x = x_off; node.y = 0.0; node.z = z_off;
             node.node_radius = 0.05;     // fixed so it's visible
+            const std::string& label = id_to_item[node.item];
+            ParsedItem P = parse_interval_info(label);
+            node.type = P.type;
+            node.kind = P.kind;
+            node.interval_low = P.low;
+            node.interval_high = P.high;
+            node.incl_low = P.incl_low;
+            node.incl_high = P.incl_high;
+            node.category_val = P.category_val;
+            node.interval_label = P.interval_label;
+            node.interval_label_short = P.interval_label_short;
             all_nodes.push_back(std::move(node));
         }
         else {
@@ -367,6 +381,17 @@ namespace coral_plots {
                 node.x_offset = x_off; node.z_offset = z_off;
                 node.x = x_off; node.y = 0.0; node.z = z_off;
                 node.node_radius = 0.05; // fixed center bubble
+                const std::string& label = id_to_item[node.item];
+                ParsedItem P = parse_interval_info(label);
+                node.type = P.type;
+                node.kind = P.kind;
+                node.interval_low = P.low;
+                node.interval_high = P.high;
+                node.incl_low = P.incl_low;
+                node.incl_high = P.incl_high;
+                node.category_val = P.category_val;
+                node.interval_label = P.interval_label;
+                node.interval_label_short = P.interval_label_short;
                 all_nodes.push_back(std::move(node));
             }
         }
@@ -390,6 +415,17 @@ namespace coral_plots {
             node.x = node.x_offset + node.radius * std::cos(node.angle);
             node.z = node.z_offset + node.radius * std::sin(node.angle);
             node.y = 0.0;
+            const std::string& label = id_to_item[node.item];
+            ParsedItem P = parse_interval_info(label);
+            node.type = P.type;           // <- becomes "feature" in R
+            node.kind = P.kind;
+            node.interval_low = P.low;
+            node.interval_high = P.high;
+            node.incl_low = P.incl_low;
+            node.incl_high = P.incl_high;
+            node.category_val = P.category_val;
+            node.interval_label = P.interval_label;
+            node.interval_label_short = P.interval_label_short;
 
             if (max_l > min_l)
                 node.node_radius = (node.lift_node - min_l) / (max_l - min_l) * (max_r - min_r) + min_r;

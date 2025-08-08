@@ -29,40 +29,40 @@
 #' @export
 render_coral_rgl <- function(
     nodes, edges, grid_size,
-    grid_color = "grey80",
-    legend = FALSE,
-    label_mode = c("none", "interval", "item", "interval_short"),
-    label_cex  = 0.7,
+    grid_color   = "grey80",
+    legend       = FALSE,
+    label_mode   = c("none", "interval", "item", "interval_short"),
+    label_cex    = 0.7,
     label_offset = 1.5,
-    max_labels = 100
+    max_labels   = 100
 ) {
   label_mode <- match.arg(label_mode)
   
-  open3d()
-  par3d(windowRect = c(50, 50, 1000, 1000))
+  rgl::open3d()
+  rgl::par3d(windowRect = c(50, 50, 1000, 1000))
   
   phi_deg <- atan2(grid_size * 0.5, grid_size * 1.5) * 180 / pi
-  view3d(theta = 0, phi = phi_deg, fov = 60)
+  rgl::view3d(theta = 0, phi = phi_deg, fov = 60)
   
-  aspect3d(1, 1, 1)
-  par3d(skipRedraw = TRUE)
+  rgl::aspect3d(1, 1, 1)
+  rgl::par3d(skipRedraw = TRUE)
   
   # ---- grid ----
   xlim <- c(0, grid_size)
   zlim <- c(0, grid_size)
   xs   <- seq(xlim[1], xlim[2], by = 1)
   zs   <- seq(zlim[1], zlim[2], by = 1)
-  for (z in zs) lines3d(x = xlim, y = 0, z = c(z, z), color = grid_color)
-  for (x in xs) lines3d(x = x, y = c(0, 0), z = zlim, color = grid_color)
+  for (z in zs) rgl::lines3d(x = xlim, y = 0, z = c(z, z), color = grid_color)
+  for (x in xs) rgl::lines3d(x = x, y = c(0, 0), z = zlim, color = grid_color)
   
   # ---- edges ----
-  if (all(c("color", "width") %in% names(edges))) {
+  if (!is.null(edges) && nrow(edges) && all(c("color", "width") %in% names(edges))) {
     styles <- dplyr::distinct(edges, color, width)
     for (i in seq_len(nrow(styles))) {
       st  <- styles[i, ]
       sub <- dplyr::filter(edges, color == st$color & width == st$width)
       coords <- as.numeric(t(as.matrix(sub[, c("x", "y", "z", "x_end", "y_end", "z_end")])))
-      segments3d(coords, color = st$color, lwd = st$width, alpha = 0.6)
+      rgl::segments3d(coords, color = st$color, lwd = st$width, alpha = 0.6)
     }
   }
   
@@ -76,21 +76,16 @@ render_coral_rgl <- function(
   }
   
   # Root detection from C++ step
-  is_root <- "step" %in% names(nodes) & nodes$step == 0L
-  y_draw <- nodes$y
-  idx <- which(is_root)
+  is_root <- ("step" %in% names(nodes)) & (nodes$step == 0L)
+  y_draw  <- nodes$y
+  idx     <- which(is_root)
   
   # Stack only if multiple roots share the same plot center
   if (length(idx)) {
     stack_gap <- 0.04
-    if (all(c("x_offset", "z_offset") %in% names(nodes))) {
-      key <- paste0(sprintf("%.6f", nodes$x_offset[idx]), "_",
-                    sprintf("%.6f", nodes$z_offset[idx]))
-    } else {
-      key <- paste0(sprintf("%.6f", nodes$x[idx]), "_",
-                    sprintf("%.6f", nodes$z[idx]))
-    }
-    
+    # x_offset/z_offset are always present now
+    key <- paste0(sprintf("%.6f", nodes$x_offset[idx]), "_",
+                  sprintf("%.6f", nodes$z_offset[idx]))
     groups <- split(idx, key)
     for (g in groups) {
       if (length(g) > 1L) {
@@ -107,11 +102,11 @@ render_coral_rgl <- function(
       nodes$x[stems], 0,               nodes$z[stems],
       nodes$x[stems], y_draw[stems],   nodes$z[stems]
     )))
-    segments3d(segs, color = "grey50", alpha = 0.5, lwd = 2)
+    rgl::segments3d(segs, color = "grey50", alpha = 0.5, lwd = 2)
   }
   
   # Draw spheres with y_draw
-  spheres3d(nodes$x, y_draw, nodes$z, radius = nodes$radius, color = node_cols)
+  rgl::spheres3d(nodes$x, y_draw, nodes$z, radius = nodes$radius, color = node_cols)
   
   # ---- labels ----
   if (label_mode != "none") {
@@ -123,12 +118,12 @@ render_coral_rgl <- function(
       nodes$item
     }
     
-    # Always keep roots, plus the top max_labels others
+    # Always keep roots, plus the top max_labels others by radius
     ord <- order(nodes$radius, decreasing = TRUE)
     keep_main <- head(ord, max_labels)
     keep <- sort(unique(c(keep_main, idx)))
     
-    # Ensure roots have some text
+    # ensure root text exists (should already, but belt & braces)
     missing_root_txt <- (is.na(txt) | !nzchar(txt)) & is_root
     txt[missing_root_txt] <- nodes$item[missing_root_txt]
     
@@ -146,16 +141,17 @@ render_coral_rgl <- function(
     rgl::material3d(depth_test = "less")
   }
   
-  par3d(skipRedraw = FALSE)
+  rgl::par3d(skipRedraw = FALSE)
   
   # ---- legend ----
   if (legend && "color" %in% names(nodes)) {
-    if ("type" %in% names(nodes)) {
-      legend_df <- dplyr::distinct(nodes, label = .data$type, color)
+    # color-by-feature is the usual case now
+    legend_df <- if ("feature" %in% names(nodes)) {
+      dplyr::distinct(nodes, label = .data$feature, color)
     } else if ("item" %in% names(nodes)) {
-      legend_df <- dplyr::distinct(nodes, label = .data$item, color)
+      dplyr::distinct(nodes, label = .data$item, color)
     } else {
-      legend_df <- NULL
+      NULL
     }
     
     if (!is.null(legend_df) && nrow(legend_df) > 0) {

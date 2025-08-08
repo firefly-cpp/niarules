@@ -265,15 +265,25 @@ List buildCoralPlots(const DataFrame& rulesDF, int grid_size,
     // convert nodes back to R
     // add type + color (by type)
     int N = static_cast<int>(nodes.size());
-    NumericVector x(N), y(N), z(N), radius(N), x_offset(N), z_offset(N);
+    NumericVector x(N), y(N), z(N), radius(N), x_offset(N), z_offset(N), interval_low(N), interval_high(N);
     IntegerVector id(N), step(N);
-    CharacterVector item(N), node_type(N), node_color(N);
+    LogicalVector incl_low(N), incl_high(N);
+    CharacterVector item(N), color_type(N), node_color(N), feature(N), kind(N), category_val(N), interval_label(N), interval_label_short(N);
 
     for (int i = 0; i < N; ++i) {
         radius[i] = nodes[i].node_radius;
         x[i] = nodes[i].x; y[i] = nodes[i].y; z[i] = nodes[i].z;
         x_offset[i] = nodes[i].x_offset; z_offset[i] = nodes[i].z_offset;
         id[i] = nodes[i].item; step[i] = nodes[i].step;
+        interval_low[i] = nodes[i].interval_low;
+        interval_high[i] = nodes[i].interval_high;
+        incl_low[i] = nodes[i].incl_low;
+        incl_high[i] = nodes[i].incl_high;
+        feature[i] = nodes[i].type;
+        kind[i] = nodes[i].kind;
+        category_val[i] = nodes[i].category_val;
+        interval_label[i] = nodes[i].interval_label;
+        interval_label_short[i] = nodes[i].interval_label_short;
 
         const std::string item_s = id_to_item[nodes[i].item];
         item[i] = item_s;
@@ -284,7 +294,7 @@ List buildCoralPlots(const DataFrame& rulesDF, int grid_size,
         std::string t = "unknown";
         auto it = item2type.find(item_s);
         if (it != item2type.end()) t = it->second;
-        node_type[i] = t;
+        color_type[i] = t;
 
         //Rcpp::Rcout << "node type " << t << std::endl;
 
@@ -301,12 +311,23 @@ List buildCoralPlots(const DataFrame& rulesDF, int grid_size,
         _["x"] = x,
         _["y"] = y,
         _["z"] = z,
+        _["x_offset"] = x_offset,
+        _["z_offset"] = z_offset,
         _["radius"] = radius,
         _["id"] = id,
         _["item"] = item,
-        _["type"] = node_type,
+        _["type"] = color_type,
         _["color"] = node_color,
-        _["step"] = step
+        _["step"] = step,
+        _["feature"] = feature,
+        _["kind"] = kind,
+        _["interval_low"] = interval_low,
+        _["interval_high"] = interval_high,
+        _["incl_low"] = incl_low,
+        _["incl_high"] = incl_high,
+        _["category_val"] = category_val,
+        _["interval_label"] = interval_label,
+        _["interval_label_short"] = interval_label_short
     );
 
     // and done

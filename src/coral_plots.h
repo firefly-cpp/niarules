@@ -1,8 +1,10 @@
 ﻿#ifndef CORAL_PLOTS_H
 #define CORAL_PLOTS_H
+
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <limits>
 
 namespace coral_plots {
 #define PI 3.14159265358979323846
@@ -64,6 +66,15 @@ namespace coral_plots {
         double z; ///< Final z-position after layout calculation.
 
         double node_radius; ///< Visual radius of the node, scaled by lift_node value.
+
+        std::string type;
+        std::string kind;
+        double interval_low = std::numeric_limits<double>::quiet_NaN();
+        double interval_high = std::numeric_limits<double>::quiet_NaN();
+        bool incl_low = false, incl_high = false;
+        std::string category_val;
+        std::string interval_label;
+        std::string interval_label_short;
     };
 
     /// @brief Represents an edge between two nodes in the coral layout.
