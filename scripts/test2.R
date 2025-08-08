@@ -17,20 +17,20 @@ de <- niarules::differential_evolution(
 
 #1
 plots <- build_coral_plots(NULL)
-render_coral_rgl(plots$nodes, plots$edges, plots$grid_size, label_mode="interval_short", legend=TRUE, max_labels=1)
+render_coral_rgl(plots$nodes, plots$edges, plots$grid_size, label_mode="interval_short", legend=FALSE, max_labels=0)
 
 #2
 edge_pal <- c("#440154","#3B528B","#21908C","#5DC863","#FDE725")
 type_colors <- c(Sex="#009378", Length="#6E8000")  # leave others auto
 
 plots <- build_coral_plots(
-  de$arules,
+  NULL,
   edge_metric   = "lift",
   edge_gradient = edge_pal,
   node_color_by = "type",
   node_colors   = type_colors
 )
-render_coral_rgl(plots$nodes, plots$edges, plots$grid_size, label_mode="interval_short", legend=TRUE)
+render_coral_rgl(plots$nodes, plots$edges, plots$grid_size, label_mode="interval_short", legend=FALSE, max_labels=0)
 
 #3
 plots <- build_coral_plots(

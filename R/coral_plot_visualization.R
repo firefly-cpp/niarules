@@ -31,7 +31,7 @@ render_coral_rgl <- function(
     nodes, edges, grid_size,
     grid_color = "grey80",
     legend = FALSE,
-    label_mode = c("none","interval","item","interval_short"),
+    label_mode = c("none", "interval", "item", "interval_short"),
     label_cex  = 0.7,
     label_offset = 1.5,
     max_labels = 100
@@ -47,35 +47,75 @@ render_coral_rgl <- function(
   aspect3d(1, 1, 1)
   par3d(skipRedraw = TRUE)
   
-  # grid
-  xlim <- c(0, grid_size); zlim <- c(0, grid_size)
+  # ---- grid ----
+  xlim <- c(0, grid_size)
+  zlim <- c(0, grid_size)
   xs   <- seq(xlim[1], xlim[2], by = 1)
   zs   <- seq(zlim[1], zlim[2], by = 1)
-  for (z in zs) lines3d(x = xlim, y = 0,   z = c(z,z), color = grid_color)
-  for (x in xs) lines3d(x = x,    y = c(0,0), z = zlim, color = grid_color)
-  #lines3d(x = xlim, y = 0, z = 0,   col = "red",  lwd = 4)
-  #lines3d(x = 0,    y = 0, z = zlim, col = "blue", lwd = 4)
+  for (z in zs) lines3d(x = xlim, y = 0, z = c(z, z), color = grid_color)
+  for (x in xs) lines3d(x = x, y = c(0, 0), z = zlim, color = grid_color)
   
-  # edges
-  if (all(c("color","width") %in% names(edges))) {
+  # ---- edges ----
+  if (all(c("color", "width") %in% names(edges))) {
     styles <- dplyr::distinct(edges, color, width)
     for (i in seq_len(nrow(styles))) {
       st  <- styles[i, ]
       sub <- dplyr::filter(edges, color == st$color & width == st$width)
-      coords <- as.numeric(t(as.matrix(sub[, c("x","y","z","x_end","y_end","z_end")])))
+      coords <- as.numeric(t(as.matrix(sub[, c("x", "y", "z", "x_end", "y_end", "z_end")])))
       segments3d(coords, color = st$color, lwd = st$width, alpha = 0.6)
     }
   }
   
-  # nodes
+  # ---- nodes ----
   node_cols <- if ("color" %in% names(nodes)) {
-    col <- as.character(nodes$color); col[is.na(col) | !nzchar(col)] <- "black"; col
-  } else "black"
-  spheres3d(nodes$x, nodes$y, nodes$z, radius = nodes$radius, color = node_cols)
+    col <- as.character(nodes$color)
+    col[is.na(col) | !nzchar(col)] <- "black"
+    col
+  } else {
+    "black"
+  }
   
-  # labels
+  # Root detection from C++ step
+  is_root <- "step" %in% names(nodes) & nodes$step == 0L
+  y_draw <- nodes$y
+  idx <- which(is_root)
+  
+  # Stack only if multiple roots share the same plot center
+  if (length(idx)) {
+    stack_gap <- 0.04
+    if (all(c("x_offset", "z_offset") %in% names(nodes))) {
+      key <- paste0(sprintf("%.6f", nodes$x_offset[idx]), "_",
+                    sprintf("%.6f", nodes$z_offset[idx]))
+    } else {
+      key <- paste0(sprintf("%.6f", nodes$x[idx]), "_",
+                    sprintf("%.6f", nodes$z[idx]))
+    }
+    
+    groups <- split(idx, key)
+    for (g in groups) {
+      if (length(g) > 1L) {
+        ranks <- seq_len(length(g)) - (length(g) + 1) / 2
+        y_draw[g] <- y_draw[g] + ranks * stack_gap
+      }
+    }
+  }
+  
+  # Stems for stacked roots
+  stems <- idx[abs(y_draw[idx] - nodes$y[idx]) > 1e-9]
+  if (length(stems)) {
+    segs <- as.numeric(t(cbind(
+      nodes$x[stems], 0,               nodes$z[stems],
+      nodes$x[stems], y_draw[stems],   nodes$z[stems]
+    )))
+    segments3d(segs, color = "grey50", alpha = 0.5, lwd = 2)
+  }
+  
+  # Draw spheres with y_draw
+  spheres3d(nodes$x, y_draw, nodes$z, radius = nodes$radius, color = node_cols)
+  
+  # ---- labels ----
   if (label_mode != "none") {
-    base_txt <- if (label_mode == "interval" && "interval_label" %in% names(nodes)) {
+    txt <- if (label_mode == "interval" && "interval_label" %in% names(nodes)) {
       nodes$interval_label
     } else if (label_mode == "interval_short" && "interval_label_short" %in% names(nodes)) {
       nodes$interval_label_short
@@ -83,37 +123,19 @@ render_coral_rgl <- function(
       nodes$item
     }
     
-    # detect RHS/root nodes
-    if ("step" %in% names(nodes)) {
-      is_root <- nodes$step == 1L
-    } else if (all(c("x_offset","z_offset") %in% names(nodes))) {
-      is_root <- (abs(nodes$x - nodes$x_offset) < 1e-9) & (abs(nodes$z - nodes$z_offset) < 1e-9)
-    } else {
-      is_root <- FALSE
-    }
-    
-    # main keep-set: biggest nodes by draw radius
-    ord       <- order(nodes$radius, decreasing = TRUE)
+    # Always keep roots, plus the top max_labels others
+    ord <- order(nodes$radius, decreasing = TRUE)
     keep_main <- head(ord, max_labels)
+    keep <- sort(unique(c(keep_main, idx)))
     
-    # always include roots
-    keep_roots <- which(is_root)
+    # Ensure roots have some text
+    missing_root_txt <- (is.na(txt) | !nzchar(txt)) & is_root
+    txt[missing_root_txt] <- nodes$item[missing_root_txt]
     
-    # if a root has empty text under current mode, fall back to item
-    txt <- base_txt
-    if (length(keep_roots)) {
-      missing_root_txt <- is.na(txt) | !nzchar(txt)
-      txt[ missing_root_txt & is_root ] <- nodes$item[ missing_root_txt & is_root ]
-    }
-    
-    # final keep-set
-    keep <- sort(unique(c(keep_main, keep_roots)))
-    
-    # draw labels (below nodes; screen-size constant; on top)
     rgl::material3d(depth_test = "always")
     rgl::text3d(
       x = nodes$x[keep],
-      y = nodes$y[keep] - nodes$radius[keep] * label_offset,
+      y = y_draw[keep] - nodes$radius[keep] * label_offset,
       z = nodes$z[keep],
       texts     = txt[keep],
       cex       = label_cex,
@@ -126,8 +148,8 @@ render_coral_rgl <- function(
   
   par3d(skipRedraw = FALSE)
   
+  # ---- legend ----
   if (legend && "color" %in% names(nodes)) {
-    # distinct label-color pairs
     if ("type" %in% names(nodes)) {
       legend_df <- dplyr::distinct(nodes, label = .data$type, color)
     } else if ("item" %in% names(nodes)) {
@@ -137,18 +159,11 @@ render_coral_rgl <- function(
     }
     
     if (!is.null(legend_df) && nrow(legend_df) > 0) {
-      # draw in the margin of the rgl window
       rgl::bgplot3d({
         op <- par(mar = c(0,0,0,0))
         plot.new()
-        legend(
-          "topright",
-          legend = legend_df$label,
-          fill   = legend_df$color,
-          border = NA,
-          bty    = "n",
-          cex    = 0.8
-        )
+        legend("topright", legend = legend_df$label, fill = legend_df$color,
+               border = NA, bty = "n", cex = 0.8)
         par(op)
       })
     }

@@ -291,8 +291,8 @@ namespace coral_plots {
 
             Node node;
             node.path_id = root;
-            node.step = static_cast<unsigned>(root.size());
-            node.item = root.back();
+            node.step = 0; // its in the center
+            node.item = root.back(); // TODO: I need to fix this
             node.leafcount = leaf_counts[root];
             node.support_node = support_node[root];
             node.lift_node = lift_node[root];
@@ -308,8 +308,8 @@ namespace coral_plots {
             node.y = 0.0;
             node.z = z_off;
 
-            // set this to constant for the time being
-            node.node_radius = 0.1;
+            // set this to constant for the time being, otherwise it's too small
+            node.node_radius = 0.05;
 
             // map lift to a visible pixel radius, using global min/max
             //if (max_l > min_l)
