@@ -259,19 +259,19 @@ List buildCoralPlots(const DataFrame& rulesDF, int grid_size,
     // add type + color (by type)
     int N = static_cast<int>(nodes.size());
     NumericVector x(N), y(N), z(N), radius(N), x_offset(N), z_offset(N);
-    IntegerVector id(N);
+    IntegerVector id(N), step(N);
     CharacterVector item(N), node_type(N), node_color(N);
 
     for (int i = 0; i < N; ++i) {
         radius[i] = nodes[i].node_radius;
         x[i] = nodes[i].x; y[i] = nodes[i].y; z[i] = nodes[i].z;
         x_offset[i] = nodes[i].x_offset; z_offset[i] = nodes[i].z_offset;
-        id[i] = nodes[i].item;
+        id[i] = nodes[i].item; step[i] = nodes[i].step;
 
         const std::string item_s = id_to_item[nodes[i].item];
         item[i] = item_s;
 
-        Rcpp::Rcout << "item " << item_s << std::endl;
+        //Rcpp::Rcout << "item " << item_s << std::endl;
 
         // type lookup
         std::string t = "unknown";
@@ -279,7 +279,7 @@ List buildCoralPlots(const DataFrame& rulesDF, int grid_size,
         if (it != item2type.end()) t = it->second;
         node_type[i] = t;
 
-        Rcpp::Rcout << "node type " << t << std::endl;
+        //Rcpp::Rcout << "node type " << t << std::endl;
 
         // color lookup by type (fallback to black)
         std::string col = "#000000";
@@ -287,7 +287,7 @@ List buildCoralPlots(const DataFrame& rulesDF, int grid_size,
         if (jt != type2color.end()) col = jt->second;
         node_color[i] = col;
 
-        Rcpp::Rcout << "node color " << col << std::endl;
+        //Rcpp::Rcout << "node color " << col << std::endl;
     }
 
     DataFrame nodesDF = DataFrame::create(
@@ -298,7 +298,8 @@ List buildCoralPlots(const DataFrame& rulesDF, int grid_size,
         _["id"] = id,
         _["item"] = item,
         _["type"] = node_type,
-        _["color"] = node_color
+        _["color"] = node_color,
+        _["step"] = step
     );
 
     // and done

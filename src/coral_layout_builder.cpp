@@ -283,6 +283,43 @@ namespace coral_plots {
         // build nodes, mapping lift to radius & also capture their coords in a map
         std::map<RulePath, std::tuple<double, double, double> > coordinates;
         coordinates[root] = std::make_tuple(x_off, 0.0, z_off);
+        
+        // create a node for the root (RHS-only)
+        {
+            //constexpr double min_r_px = 0.005;
+            //constexpr double max_r_px = 0.02;
+
+            Node node;
+            node.path_id = root;
+            node.step = static_cast<unsigned>(root.size());
+            node.item = root.back();
+            node.leafcount = leaf_counts[root];
+            node.support_node = support_node[root];
+            node.lift_node = lift_node[root];
+
+            node.angle_start = 0.0;
+            node.angle_end = 2 * PI;
+            node.angle = 0.0;
+
+            node.radius = 0.0;
+            node.x_offset = x_off;
+            node.z_offset = z_off;
+            node.x = x_off;
+            node.y = 0.0;
+            node.z = z_off;
+
+            // set this to constant for the time being
+            node.node_radius = 0.1;
+
+            // map lift to a visible pixel radius, using global min/max
+            //if (max_l > min_l)
+            //    node.node_radius = (node.lift_node - min_l) / (max_l - min_l) * (max_r_px - min_r_px) + min_r_px;
+            //else
+            //    node.node_radius = 0.5 * (min_r_px + max_r_px);
+
+            all_nodes.push_back(std::move(node));
+        }
+
         for (const auto &[pfx, _]: metrics_by_path_id) {
             constexpr double min_r = 0.005;
             constexpr double max_r = 0.02;

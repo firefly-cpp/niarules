@@ -15,17 +15,35 @@ de <- niarules::differential_evolution(
   is_time_series = FALSE
 )
 
-plots <- build_coral_plots(de$arules)
-
+#1
 plots <- build_coral_plots(NULL)
-#plots$nodes
-#plots$edges
-#plots$grid_size
+render_coral_rgl(plots$nodes, plots$edges, plots$grid_size, label_mode="interval_short", legend=TRUE, max_labels=1)
 
-render_coral_rgl(
-  plots$nodes, plots$edges,
-  plots$grid_size,
-  grid_color   = "lightgray",
-  legend       = FALSE
+#2
+edge_pal <- c("#440154","#3B528B","#21908C","#5DC863","#FDE725")
+type_colors <- c(Sex="#009378", Length="#6E8000")  # leave others auto
+
+plots <- build_coral_plots(
+  de$arules,
+  edge_metric   = "lift",
+  edge_gradient = edge_pal,
+  node_color_by = "type",
+  node_colors   = type_colors
 )
+render_coral_rgl(plots$nodes, plots$edges, plots$grid_size, label_mode="interval_short", legend=TRUE)
 
+#3
+plots <- build_coral_plots(
+  de$arules,
+  node_color_by = "item"
+)
+render_coral_rgl(plots$nodes, plots$edges, plots$grid_size, label_mode="interval_short", legend=FALSE)
+
+#4
+plots <- build_coral_plots(
+  de$arules,
+  edge_metric   = "support",
+  edge_gradient = c("#2c7bb6","#d7191c"),
+  node_color_by = "none"
+)
+render_coral_rgl(plots$nodes, plots$edges, plots$grid_size, legend=TRUE)
