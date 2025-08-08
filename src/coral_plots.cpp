@@ -17,6 +17,8 @@ namespace coral_plots {
         Rcpp::Rcout << "number of rules " << rules.size() << "\n";
         Rcpp::Rcout << "requested grid size " << grid_size << "\n";
 
+        Rcpp::Rcout << "[coral] buildCoralPlots compiled " << __DATE__ << " " << __TIME__ << "\n";
+
         const auto t0 = std::chrono::high_resolution_clock::now();
 
         CoralLayoutBuilder::build(rules, grid_size, 0.5, id_to_item, nodes, edges);

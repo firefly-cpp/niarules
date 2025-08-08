@@ -5,6 +5,24 @@ using namespace Rcpp;
 #include "coral_plots.h"
 #include "string_splitter.h"
 
+static std::string feature_from_label_top_level_first(std::string s) {
+    // take only the FIRST top-level token (outside (), [], {})
+    auto parts = split_outside_brackets(s);
+    std::string first = parts.empty() ? s : trim_copy(parts[0]);
+
+    // strip operators/brackets after the feature name
+    size_t n = first.size(), i = 0;
+    for (; i < n; ++i) {
+        char c = first[i];
+        if (c == '(' || c == '[' || c == '<' || c == '>' || c == '=') break;
+        // crude " in " / "%in%" handling
+        if (c == ' ' && i + 1 < n && (first[i + 1] == 'i' || first[i + 1] == '%')) break;
+    }
+    std::string out = trim_copy(first.substr(0, i));
+    if (!out.empty() && out.back() == ' ') out.pop_back();
+    return out;
+}
+
 /// @brief Retrieves the integer ID for a given item string, adding it to the map and registry if not already present.
 ///
 /// If the item exists in the lookup map, its ID is returned. Otherwise, a new ID is generated,
@@ -43,11 +61,11 @@ static int get_item_id(
 /// @param id_to_item Vector of item strings indexed by their assigned ID.
 /// @return A vector of Rule objects representing the parsed rules.
 static std::vector<coral_plots::Rule> df_to_rules(
-    const DataFrame &df,
-    std::unordered_map<std::string, int> &item_to_id,
-    std::vector<std::string> &id_to_item
+    const DataFrame& df,
+    std::unordered_map<std::string, int>& item_to_id,
+    std::vector<std::string>& id_to_item
 ) {
-    // names of the cols = hardcoded
+    // required columns
     IntegerVector ids = df["rule_id"];
     CharacterVector rhs_chr = df["rhs"];
     NumericVector supports = df["support"];
@@ -55,30 +73,73 @@ static std::vector<coral_plots::Rule> df_to_rules(
     NumericVector lifts = df["lift"];
     IntegerVector lengths = df["antecedent_length"];
 
-    const size_t n = ids.size();
+    const int n = ids.size();
     std::vector<coral_plots::Rule> out;
     out.reserve(n);
 
-    for (size_t i = 0; i < n; ++i) {
+    // collect lhs_* columns once, sorted numerically
+    std::vector<std::pair<int, std::string>> lhs_indexed;
+    CharacterVector nms = df.names();
+    for (int i = 0; i < nms.size(); ++i) {
+        std::string s = Rcpp::as<std::string>(nms[i]);
+        if (s.rfind("lhs_", 0) == 0) {
+            // parse the number after "lhs_"
+            int idx = std::atoi(s.c_str() + 4);
+            lhs_indexed.emplace_back(idx, s);
+        }
+    }
+    std::sort(lhs_indexed.begin(), lhs_indexed.end(),
+        [](auto& a, auto& b) { return a.first < b.first; });
 
-        // map rhs/consequent string to ID
-        const std::string rhs_str = static_cast<std::string>(rhs_chr[i]);
+    // also materialize column vectors to avoid repeated df[...] lookups
+    std::vector<CharacterVector> lhs_cols;
+    lhs_cols.reserve(lhs_indexed.size());
+    for (auto& kv : lhs_indexed) {
+        lhs_cols.emplace_back(df[kv.second]);
+    }
+
+    for (int i = 0; i < n; ++i) {
+        // RHS mapping (combined, normalized)
+        std::string rhs_str = (rhs_chr[i] == NA_STRING) ? std::string()
+            : Rcpp::as<std::string>(rhs_chr[i]);
+        rhs_str = trim_copy(strip_outer_braces(rhs_str));
         const int rhs_id = get_item_id(item_to_id, id_to_item, rhs_str);
 
-        // Also register individual RHS items as IDs so C++ can emit one root per item
-        for (auto const& sub : split_outside_brackets(rhs_str)) {
-            (void)get_item_id(item_to_id, id_to_item, sub);
+        // register individual RHS items (for stacked step-0 roots)
+        for (const auto& sub : split_outside_brackets(rhs_str)) {
+            (void)get_item_id(item_to_id, id_to_item, trim_copy(sub));
         }
 
-        // get the lhs/antecedent cols, convert strings to IDs
-        const int k = lengths[i];
+        // LHS mapping: enforce atomic tokens per cell
+        const int k = std::max(0, (int)lengths[i]);
         std::vector<int> ant;
         ant.reserve(k);
-        for (int j = 1; j <= k; ++j) {
-            std::string col = "lhs_" + std::to_string(j);
-            CharacterVector lhs_col = df[col];
-            int lhs_id = get_item_id(item_to_id, id_to_item,
-                                     static_cast<std::string>(lhs_col[i]));
+
+        const int avail = (int)lhs_cols.size();
+        const int upto = std::min(k, avail);
+        for (int j = 0; j < upto; ++j) {
+            const CharacterVector& colV = lhs_cols[j];
+            if (CharacterVector::is_na(colV[i]) || as<std::string>(colV[i]).empty()) continue;
+
+            std::string cell = Rcpp::as<std::string>(colV[i]);
+            auto parts = split_outside_brackets(cell);
+
+            if (parts.empty()) continue;                  // blank/empty ? skip
+            if (parts.size() > 1) {
+                Rcpp::stop("Non-atomic LHS cell in %s (row %d): '%s'",
+                    lhs_indexed[j].second.c_str(), i + 1, cell.c_str());
+            }
+            std::string token = trim_copy(parts[0]);
+            /*int lhs_id = get_item_id(item_to_id, id_to_item, token);
+            ant.push_back(lhs_id);*/
+
+            int lhs_id = get_item_id(item_to_id, id_to_item, token);
+
+            // sanity: the id maps back to the same token
+            const std::string& roundtrip = id_to_item[lhs_id];
+            if (split_outside_brackets(roundtrip).size() > 1) {
+                Rcpp::stop("LHS token became non-atomic after ID mapping: '%s'", roundtrip.c_str());
+            }
             ant.push_back(lhs_id);
         }
 
@@ -89,11 +150,11 @@ static std::vector<coral_plots::Rule> df_to_rules(
         r.support = supports[i];
         r.confidence = confidences[i];
         r.lift = lifts[i];
+
         out.push_back(std::move(r));
     }
     return out;
 }
-
 
 //' @title Entry point for R to generate coral plot data from a set of association rules.
 //'
@@ -279,7 +340,8 @@ List buildCoralPlots(const DataFrame& rulesDF, int grid_size,
         interval_high[i] = nodes[i].interval_high;
         incl_low[i] = nodes[i].incl_low;
         incl_high[i] = nodes[i].incl_high;
-        feature[i] = nodes[i].type;
+        // harden against any composite label sneaking through
+        feature[i] = feature_from_label_top_level_first(id_to_item[nodes[i].item]);
         kind[i] = nodes[i].kind;
         category_val[i] = nodes[i].category_val;
         interval_label[i] = nodes[i].interval_label;

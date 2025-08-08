@@ -1,40 +1,37 @@
 library(niarules)
-library(dplyr)
 
-# this loads a precomputed ruleset (one that has longer rules)
-rules_csv <- file.path("scripts", "abalone_rules1.csv")
-rules_df <- read.csv(rules_csv, stringsAsFactors = FALSE)
+# Shared-prefix toy rules
+shared_rules <- data.frame(
+  Antecedent = c(
+    "A",                  # A -> RHS
+    "B, A",               # B -> A -> RHS
+    "C, A",               # C -> A -> RHS
+    "D, C, A",             # D -> C -> A -> RHS
+    "E",             # E -> RHS
+    "F"             # F -> RHS
+  ),
+  Consequence = c(
+    "{Target = yes}",
+    "{Target = yes}",
+    "{Target = yes}",
+    "{Target = yes}",
+    "{Target = yes}",
+    "{Target = yes}"
+  ),
+  Support    = c(0.20, 0.12, 0.10, 0.06, 0.10, 0.20),
+  Confidence = c(0.60, 0.65, 0.62, 0.70, 0.2, 0.3),
+  Fitness    = c(1.5, 1.8, 1.7, 2.1, 1.2, 1.8),   # treated like "lift"
+  stringsAsFactors = FALSE
+)
 
-get_rules_wide <- function(rules_df) {
-  rules_df %>%
-    # ensure we have the right types
-    mutate(
-      rule_id            = as.integer(rule_id),
-      support            = as.numeric(support),
-      confidence         = as.numeric(confidence),
-      lift               = as.numeric(lift),
-      antecedent_length  = as.integer(antecedent_length),
-      rhs                = as.character(rhs)
-    ) %>%
-    # keep only the columns the C++ side will use,
-    # in the exact order it expects them:
-    select(
-      rule_id,
-      support,
-      confidence,
-      lift,
-      rhs,
-      antecedent_length,
-      starts_with("lhs_")
-    )
-}
+edge_pal    <- c("#440154","#3B528B","#21908C","#5DC863","#FDE725")
+type_colors <- c(A="#6E8000", B="#009378", C="#3366CC", D="#AA33FF")  # optional overrides
 
-wdf <- get_rules_wide(rules_df)
-
-# how many radial‐plots (one per unique consequent) we need
-n_plots   <- length(unique(wdf$rhs))
-grid_size <- ceiling(sqrt(n_plots))
-
-res <- buildCoralPlots(wdf, grid_size)
-render_coral_rgl(res$nodes, res$edges, grid_size, NULL, "lightblue", FALSE)
-
+plots <- build_coral_plots(
+  arules        = shared_rules,
+  edge_metric   = "lift",
+  edge_gradient = edge_pal,
+  node_color_by = "type",    # colors by parsed feature (here: same as item)
+  node_colors   = type_colors
+)
+render_coral_rgl(plots$nodes, plots$edges, plots$grid_size, label_mode="item", legend=TRUE, max_labels=0)

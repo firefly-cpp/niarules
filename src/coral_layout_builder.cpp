@@ -345,7 +345,7 @@ namespace coral_plots {
             Node node;
             node.path_id = root;
             node.step = 0;
-            node.item = root.back();     // combined rhs id
+            node.item = (root_item_ids.empty() ? root.back() : root_item_ids[0]);
             node.leafcount = leaf_counts[root];
             node.support_node = support_node[root];
             node.lift_node = lift_node[root];
@@ -357,6 +357,7 @@ namespace coral_plots {
             const std::string& label = id_to_item[node.item];
             ParsedItem P = parse_interval_info(label);
             node.type = P.type;
+            Rcpp::Rcout << node.type << std::endl;
             node.kind = P.kind;
             node.interval_low = P.low;
             node.interval_high = P.high;
@@ -384,6 +385,7 @@ namespace coral_plots {
                 const std::string& label = id_to_item[node.item];
                 ParsedItem P = parse_interval_info(label);
                 node.type = P.type;
+                Rcpp::Rcout << node.type << std::endl;
                 node.kind = P.kind;
                 node.interval_low = P.low;
                 node.interval_high = P.high;
@@ -417,7 +419,8 @@ namespace coral_plots {
             node.y = 0.0;
             const std::string& label = id_to_item[node.item];
             ParsedItem P = parse_interval_info(label);
-            node.type = P.type;           // <- becomes "feature" in R
+            node.type = P.type;
+            Rcpp::Rcout << node.type << std::endl;
             node.kind = P.kind;
             node.interval_low = P.low;
             node.interval_high = P.high;

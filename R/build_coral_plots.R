@@ -46,10 +46,15 @@ build_coral_plots <- function(
   edge_metric   <- match.arg(edge_metric)
   node_color_by <- match.arg(node_color_by)
   
-  # ---- load rules (CSV in dev mode) ----
+  # ---- load rules ----
+  required_cols <- c("Antecedent","Consequence","Support","Confidence","Fitness")
   if (is.null(arules)) {
     rules_df <- utils::read.csv("test.csv", stringsAsFactors = FALSE)
+  } else if (is.data.frame(arules) && all(required_cols %in% names(arules))) {
+    # accept plain data.frame
+    rules_df <- arules
   } else {
+    # fall back to package writer for native niarules objects
     tmp_csv <- tempfile(fileext = ".csv")
     on.exit(unlink(tmp_csv), add = TRUE)
     niarules::write_association_rules_to_csv(arules, file = tmp_csv, is_time_series = FALSE)
@@ -65,7 +70,15 @@ build_coral_plots <- function(
   if (length(lhs_cols)) {
     lhs_counts <- rowSums(!is.na(wdf[lhs_cols]))
     stopifnot(all(wdf$antecedent_length <= lhs_counts))
-    stopifnot(!any(grepl(",\\s*[A-Za-z_.]", unlist(wdf[lhs_cols]), perl = TRUE), na.rm = TRUE))
+    
+    # ensure no composite top-level token remains in any lhs_j
+    # (commas inside (), [], {} are OK)
+    lhs_flat <- unlist(wdf[lhs_cols], use.names = FALSE)
+    bad <- vapply(lhs_flat, function(s) {
+      if (is.na(s) || !nzchar(s)) FALSE
+      else length(.coral_split_outside_brackets(s)) > 1L
+    }, logical(1))
+    stopifnot(!any(bad, na.rm = TRUE))
   }
   
   # ---- grid size: one plot per *combined* RHS ----
@@ -143,25 +156,41 @@ build_coral_plots <- function(
 # split by commas that are OUTSIDE (), [], {}
 .coral_split_outside_brackets <- function(x) {
   if (is.na(x) || x == "") return(character(0))
-  x <- gsub("^\\{|\\}$", "", x)
-  chars <- strsplit(x, "", fixed = TRUE)[[1]]
   
+  # strip ONE layer of outer braces if present
+  s <- trimws(x)
+  if (nchar(s) >= 2L && substr(s, 1L, 1L) == "{" && substr(s, nchar(s), nchar(s)) == "}") {
+    s <- substr(s, 2L, nchar(s) - 1L)
+  }
+  
+  chars <- strsplit(s, "", fixed = TRUE)[[1]]
   d_par <- 0L; d_brk <- 0L; d_brc <- 0L
   parts <- character(0); buf <- character(0)
   
   flush_buf <- function() {
-    s <- trimws(paste0(buf, collapse = ""))
-    if (nzchar(s)) parts <<- c(parts, s)
-    buf <<- character(0)
+    if (length(buf)) {
+      token <- trimws(paste0(buf, collapse = ""))
+      if (nzchar(token)) parts <<- c(parts, token)
+      buf <<- character(0)
+    }
   }
+  
   for (ch in chars) {
-    if (ch == "(") d_par <- d_par + 1L else if (ch == ")") d_par <- max(0L, d_par - 1L)
-    else if (ch == "[") d_brk <- d_brk + 1L else if (ch == "]") d_brk <- max(0L, d_brk - 1L)
-    else if (ch == "{") d_brc <- d_brc + 1L else if (ch == "}") d_brc <- max(0L, d_brc - 1L)
+    if (ch == "(")      d_par <- d_par + 1L
+    else if (ch == ")") d_par <- max(0L, d_par - 1L)
+    else if (ch == "[") d_brk <- d_brk + 1L
+    else if (ch == "]") d_brk <- max(0L, d_brk - 1L)
+    else if (ch == "{") d_brc <- d_brc + 1L
+    else if (ch == "}") d_brc <- max(0L, d_brc - 1L)
     
-    if (ch == "," && d_par == 0L && d_brk == 0L && d_brc == 0L) flush_buf() else buf <- c(buf, ch)
+    if (ch == "," && d_par == 0L && d_brk == 0L && d_brc == 0L) {
+      flush_buf()
+    } else {
+      buf <- c(buf, ch)
+    }
   }
   flush_buf()
+  
   parts
 }
 

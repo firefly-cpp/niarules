@@ -57,12 +57,13 @@ render_coral_rgl <- function(
   
   # ---- edges ----
   if (!is.null(edges) && nrow(edges) && all(c("color", "width") %in% names(edges))) {
-    styles <- dplyr::distinct(edges, color, width)
+    edges$width_binned <- round(edges$width, 2)
+    styles <- unique(edges[c("color","width_binned")])
     for (i in seq_len(nrow(styles))) {
       st  <- styles[i, ]
-      sub <- dplyr::filter(edges, color == st$color & width == st$width)
-      coords <- as.numeric(t(as.matrix(sub[, c("x", "y", "z", "x_end", "y_end", "z_end")])))
-      rgl::segments3d(coords, color = st$color, lwd = st$width, alpha = 0.6)
+      sub <- edges[edges$color == st$color & edges$width_binned == st$width_binned, ]
+      coords <- as.numeric(t(as.matrix(sub[, c("x","y","z","x_end","y_end","z_end")])))
+      rgl::segments3d(coords, color = st$color, lwd = st$width_binned, alpha = 0.6)
     }
   }
   
@@ -76,7 +77,7 @@ render_coral_rgl <- function(
   }
   
   # Root detection from C++ step
-  is_root <- ("step" %in% names(nodes)) & (nodes$step == 0L)
+  is_root <- if ("step" %in% names(nodes)) nodes$step == 0L else rep(FALSE, nrow(nodes))
   y_draw  <- nodes$y
   idx     <- which(is_root)
   
@@ -143,18 +144,14 @@ render_coral_rgl <- function(
   
   rgl::par3d(skipRedraw = FALSE)
   
-  # ---- legend ----
   if (legend && "color" %in% names(nodes)) {
-    # color-by-feature is the usual case now
-    legend_df <- if ("feature" %in% names(nodes)) {
-      dplyr::distinct(nodes, label = .data$feature, color)
-    } else if ("item" %in% names(nodes)) {
-      dplyr::distinct(nodes, label = .data$item, color)
-    } else {
-      NULL
+    # always by feature (parsed base name)
+    if (!"feature" %in% names(nodes)) {
+      stop("nodes$feature missing; legend wants base feature names.")
     }
+    legend_df <- dplyr::distinct(nodes, label = .data$feature, color)
     
-    if (!is.null(legend_df) && nrow(legend_df) > 0) {
+    if (nrow(legend_df) > 0) {
       rgl::bgplot3d({
         op <- par(mar = c(0,0,0,0))
         plot.new()
