@@ -15,8 +15,8 @@ de <- niarules::differential_evolution(
   is_time_series = FALSE
 )
 
-plots <- build_radial_plots(de$arules)
-render_radial_rgl(
+plots <- build_coral_plots(de$arules)
+render_coral_rgl(
   plots$nodes, plots$edges,
   plots$grid_size,
   feature_cols = NULL,
