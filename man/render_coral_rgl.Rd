@@ -9,7 +9,11 @@ render_coral_rgl(
   edges,
   grid_size,
   grid_color = "grey80",
-  legend = FALSE
+  legend = FALSE,
+  label_mode = c("none", "interval", "item", "interval_short"),
+  label_cex = 0.7,
+  label_offset = 1.5,
+  max_labels = 100
 )
 }
 \arguments{

@@ -10,6 +10,17 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
+// parse_rules_cpp
+Rcpp::List parse_rules_cpp(Rcpp::DataFrame rules_df);
+RcppExport SEXP _niarules_parse_rules_cpp(SEXP rules_dfSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::DataFrame >::type rules_df(rules_dfSEXP);
+    rcpp_result_gen = Rcpp::wrap(parse_rules_cpp(rules_df));
+    return rcpp_result_gen;
+END_RCPP
+}
 // buildCoralPlots
 List buildCoralPlots(const DataFrame& rulesDF, int grid_size, Rcpp::CharacterVector edge_gradient, std::string edge_metric, Rcpp::Nullable<Rcpp::DataFrame> item_types, Rcpp::Nullable<Rcpp::DataFrame> type_colors);
 RcppExport SEXP _niarules_buildCoralPlots(SEXP rulesDFSEXP, SEXP grid_sizeSEXP, SEXP edge_gradientSEXP, SEXP edge_metricSEXP, SEXP item_typesSEXP, SEXP type_colorsSEXP) {
@@ -28,6 +39,7 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
+    {"_niarules_parse_rules_cpp", (DL_FUNC) &_niarules_parse_rules_cpp, 1},
     {"_niarules_buildCoralPlots", (DL_FUNC) &_niarules_buildCoralPlots, 6},
     {NULL, NULL, 0}
 };

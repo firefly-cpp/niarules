@@ -4,7 +4,15 @@
 \alias{build_coral_plots}
 \title{Build Data for Coral Plot Visualization from Association Rules}
 \usage{
-build_coral_plots(arules)
+build_coral_plots(
+  arules,
+  edge_metric = c("confidence", "lift", "support"),
+  edge_gradient = c("#2166AC", "#67A9CF", "#D1E5F0", "#FDDBC7", "#EF8A62", "#B2182B"),
+  node_color_by = c("type", "item", "none"),
+  node_colors = NULL,
+  palette_hcl_c = 80,
+  palette_hcl_l = 50
+)
 }
 \arguments{
 \item{arules}{An object containing association rules, typically of class \code{rules} from the
