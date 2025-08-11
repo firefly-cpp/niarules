@@ -21,22 +21,6 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
-// buildCoralPlots
-List buildCoralPlots(const DataFrame& rulesDF, int grid_size, Rcpp::CharacterVector edge_gradient, std::string edge_metric, Rcpp::Nullable<Rcpp::DataFrame> item_types, Rcpp::Nullable<Rcpp::DataFrame> type_colors);
-RcppExport SEXP _niarules_buildCoralPlots(SEXP rulesDFSEXP, SEXP grid_sizeSEXP, SEXP edge_gradientSEXP, SEXP edge_metricSEXP, SEXP item_typesSEXP, SEXP type_colorsSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const DataFrame& >::type rulesDF(rulesDFSEXP);
-    Rcpp::traits::input_parameter< int >::type grid_size(grid_sizeSEXP);
-    Rcpp::traits::input_parameter< Rcpp::CharacterVector >::type edge_gradient(edge_gradientSEXP);
-    Rcpp::traits::input_parameter< std::string >::type edge_metric(edge_metricSEXP);
-    Rcpp::traits::input_parameter< Rcpp::Nullable<Rcpp::DataFrame> >::type item_types(item_typesSEXP);
-    Rcpp::traits::input_parameter< Rcpp::Nullable<Rcpp::DataFrame> >::type type_colors(type_colorsSEXP);
-    rcpp_result_gen = Rcpp::wrap(buildCoralPlots(rulesDF, grid_size, edge_gradient, edge_metric, item_types, type_colors));
-    return rcpp_result_gen;
-END_RCPP
-}
 // build_layout_cpp
 Rcpp::List build_layout_cpp(Rcpp::List parsed, int grid_size, std::string lhs_sort);
 RcppExport SEXP _niarules_build_layout_cpp(SEXP parsedSEXP, SEXP grid_sizeSEXP, SEXP lhs_sortSEXP) {
@@ -53,7 +37,6 @@ END_RCPP
 
 static const R_CallMethodDef CallEntries[] = {
     {"_niarules_parse_rules_cpp", (DL_FUNC) &_niarules_parse_rules_cpp, 1},
-    {"_niarules_buildCoralPlots", (DL_FUNC) &_niarules_buildCoralPlots, 6},
     {"_niarules_build_layout_cpp", (DL_FUNC) &_niarules_build_layout_cpp, 3},
     {NULL, NULL, 0}
 };

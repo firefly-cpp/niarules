@@ -2,7 +2,7 @@
 % Please edit documentation in R/parse_rules.R
 \name{parse_rules}
 \alias{parse_rules}
-\title{Parse association rules into a reusable, layout-agnostic structure.}
+\title{parses association rules into a reusable, layout-agnostic structure}
 \usage{
 parse_rules(arules = NULL)
 }
@@ -10,11 +10,10 @@ parse_rules(arules = NULL)
 \item{arules}{data.frame | niarules object}
 }
 \description{
-Accepts either:
+accepts either:
 - a data.frame with niarules-like columns (Antecedent, Consequence, Support, Confidence, Fitness), or
 - a native niarules rules object (written to CSV via niarules::write_association_rules_to_csv)
-}
-\details{
+
 Returns a list with:
   - items: data.frame(item_id, label, feature, kind, category_value, lo, hi, incl_low, incl_high, op, label_long, label_short)
   - rules: data.frame(rule_id, support, confidence, lift, lhs_item_ids(list<int>), rhs_item_ids(list<int>),

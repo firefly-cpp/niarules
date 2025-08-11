@@ -20,7 +20,9 @@
 #' @param edge_alpha edge transparency (0..1)
 #' @param node_color_by "type" (base feature), "item" (full string), or "none"
 #' @param node_colors optional named overrides for node colors
-#' @param palette_hcl_c, palette_hcl_l HCL palette params for auto node colors
+#' @param palette_hcl_c HCL palette params for auto node colors
+#' @param palette_hcl_l HCL palette params for auto node colors
+#' @param return_data used for testing only
 #' @importFrom rgl open3d par3d aspect3d lines3d segments3d spheres3d view3d text3d material3d bgplot3d
 #' @importFrom dplyr distinct
 #' @export
@@ -211,7 +213,7 @@ render_coral_rgl <- function(
   # draw legend
   if (legend && "color" %in% names(nodes)) {
     if (!"feature" %in% names(nodes)) stop("nodes$feature missing; legend needs base feature names.")
-    legend_df <- dplyr::distinct(nodes, label = .data$feature, color)
+    legend_df <- dplyr::distinct(nodes, label = .data$feature, color = .data$color)
     if (nrow(legend_df) > 0) {
       rgl::bgplot3d({
         op <- par(mar = c(0,0,0,0))

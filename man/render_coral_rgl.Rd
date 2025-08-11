@@ -2,7 +2,7 @@
 % Please edit documentation in R/coral_plot_visualization.R
 \name{render_coral_rgl}
 \alias{render_coral_rgl}
-\title{Render a Coral Plot in 3D Using rgl}
+\title{applies styling to coral plots and renders them using rgl}
 \usage{
 render_coral_rgl(
   nodes,
@@ -13,36 +13,59 @@ render_coral_rgl(
   label_mode = c("none", "interval", "item", "interval_short"),
   label_cex = 0.7,
   label_offset = 1.5,
-  max_labels = 100
+  max_labels = 100,
+  edge_metric = c("confidence", "lift", "support"),
+  edge_width_range = c(1, 5),
+  edge_width_transform = c("linear", "sqrt", "log"),
+  edge_gradient = c("#2166AC", "#67A9CF", "#D1E5F0", "#FDDBC7", "#EF8A62", "#B2182B"),
+  edge_alpha = 0.6,
+  node_color_by = c("type", "item", "none"),
+  node_colors = NULL,
+  palette_hcl_c = 80,
+  palette_hcl_l = 50,
+  return_data = FALSE
 )
 }
 \arguments{
-\item{nodes}{A data frame containing node positions and properties. Must include columns:
-\code{x}, \code{y}, \code{z}, \code{radius}, and \code{item}.}
+\item{nodes}{data.frame from build_coral_layout()$nodes}
 
-\item{edges}{A data frame containing edge positions and styles. Must include columns:
-\code{x}, \code{y}, \code{z}, \code{x_end}, \code{y_end}, \code{z_end}, and optionally
-\code{color} and \code{width}.}
+\item{edges}{data.frame from build_coral_layout()$edges}
 
-\item{grid_size}{Integer indicating the number of grid cells in each dimension of the layout.
-This determines the size and scale of the background grid.}
+\item{grid_size}{integer from build_coral_layout()$grid_size}
 
-\item{grid_color}{Color of the background grid lines. Defaults to \code{"grey80"}.}
+\item{grid_color}{background grid color}
 
-\item{legend}{Logical indicating whether to display a legend. Currently not implemented. Defaults to \code{FALSE}.}
+\item{legend}{show a node legend (by base feature)}
 
-\item{feature_cols}{Optional named vector mapping node item names to colors. If provided, it is
-used to color the nodes accordingly. Defaults to \code{NULL} (black nodes).}
+\item{label_mode}{"none"|"interval"|"item"|"interval_short"}
+
+\item{label_cex}{label size}
+
+\item{label_offset}{vertical offset in radii}
+
+\item{max_labels}{max non-root labels to be shown}
+
+\item{edge_metric}{which metric to map to edge width/color}
+
+\item{edge_width_range}{numeric length-2, min/max lwd}
+
+\item{edge_width_transform}{"linear"|"sqrt"|"log"}
+
+\item{edge_gradient}{character vector (>=2) for edge colors}
+
+\item{edge_alpha}{edge transparency (0..1)}
+
+\item{node_color_by}{"type" (base feature), "item" (full string), or "none"}
+
+\item{node_colors}{optional named overrides for node colors}
+
+\item{palette_hcl_c}{HCL palette params for auto node colors}
+
+\item{palette_hcl_l}{HCL palette params for auto node colors}
+
+\item{return_data}{used for testing only}
 }
 \description{
-Renders a coral network layout in an interactive 3D plot using the \pkg{rgl} package.
-This includes a customizable grid, edges between nodes (with optional styling), and nodes
-themselves (with optional color coding based on features).
-}
-\details{
-The function first opens a new rgl window, positions the 3D camera, and draws a grid on the x–z plane.
-Edges are drawn using \code{segments3d()} and can be styled by width and color. Nodes are drawn
-as 3D spheres via \code{spheres3d()}.
-
-The x and z axes are highlighted in red and blue, respectively, to assist orientation.
+Expects nodes/edges from build_coral_layout(). Edges must contain
+columns: x,y,z,x_end,y_end,z_end and metrics: support, confidence, lift.
 }

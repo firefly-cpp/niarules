@@ -23,11 +23,9 @@ RoxygenNote: 7.3.2
 Imports:
     stats,
     utils,
-    ggplot2,
-    grid,
     Rcpp,
 	dplyr,
-	tidyr,
+	rlang,
 	rgl
 Suggests:
   testthat

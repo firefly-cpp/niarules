@@ -5,7 +5,8 @@ setup({
   skip_if_not_installed("rgl")
   old <- getOption("rgl.useNULL")
   options(rgl.useNULL = TRUE)
-  withr::defer(options(rgl.useNULL = old), teardown_env())
+  on.exit(options(rgl.useNULL = old), add = TRUE)
+  
 })
 
 mk_df <- function() {
