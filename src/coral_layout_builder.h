@@ -30,7 +30,8 @@ namespace coral_plots {
             const std::vector<std::string> &id_to_item,
             std::vector<Node> &all_nodes,
             std::vector<Edge> &all_edges,
-			int metric_to_use = 0 // NEW: 0=confidence, 1=support, 2=lift
+			int metric_to_use, // NEW: 0=confidence, 1=support, 2=lift
+			const std::unordered_map<int, std::vector<int>>& rhs_components	// rhs already split
         );
 
     private:

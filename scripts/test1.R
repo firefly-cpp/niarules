@@ -1,7 +1,6 @@
 library(niarules)
 
-# Shared-prefix toy rules
-shared_rules <- data.frame(
+df <- data.frame(
   Antecedent = c(
     "A",                  # A -> RHS
     "B, A",               # B -> A -> RHS
@@ -11,12 +10,12 @@ shared_rules <- data.frame(
     "F"             # F -> RHS
   ),
   Consequence = c(
-    "{Target = yes}",
-    "{Target = yes}",
-    "{Target = yes}",
-    "{Target = yes}",
-    "{Target = yes}",
-    "{Target = yes}"
+    "Target = yes",
+    "Target = yes",
+    "Target = yes",
+    "Target = yes",
+    "Target = yes",
+    "Target = yes"
   ),
   Support    = c(0.20, 0.12, 0.10, 0.06, 0.10, 0.20),
   Confidence = c(0.60, 0.65, 0.62, 0.70, 0.2, 0.3),
@@ -24,14 +23,27 @@ shared_rules <- data.frame(
   stringsAsFactors = FALSE
 )
 
-edge_pal    <- c("#440154","#3B528B","#21908C","#5DC863","#FDE725")
-type_colors <- c(A="#6E8000", B="#009378", C="#3366CC", D="#AA33FF")  # optional overrides
+parsed = parse_rules(df)
+parsed
 
-plots <- build_coral_plots(
-  arules        = shared_rules,
-  edge_metric   = "lift",
-  edge_gradient = edge_pal,
-  node_color_by = "type",    # colors by parsed feature (here: same as item)
-  node_colors   = type_colors
+layout = build_coral_plots(parsed)
+layout
+
+render_coral_rgl(
+  layout$nodes, layout$edges, layout$grid_size,
+  grid_color = "grey80",
+  legend     = TRUE,
+  label_mode   = "item",
+  label_cex    = 0.7,
+  label_offset = 1.5,
+  max_labels   = 100,
+  edge_metric  = "lift",
+  edge_width_range = c(1, 5),
+  edge_width_transform = "linear",
+  edge_gradient = c("#2166AC","#67A9CF","#D1E5F0","#FDDBC7","#EF8A62","#B2182B"),
+  edge_alpha   = 0.6,
+  node_color_by = "item",
+  node_colors   = c(lhs1="#9E3D3D", lhs2="#006D77", lhs3="#8A5FBF", lhs4="#6E8000"),
+  palette_hcl_c = 80,
+  palette_hcl_l = 50
 )
-render_coral_rgl(plots$nodes, plots$edges, plots$grid_size, label_mode="item", legend=TRUE, max_labels=0)

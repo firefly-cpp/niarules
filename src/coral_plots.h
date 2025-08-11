@@ -43,10 +43,9 @@ namespace coral_plots {
     /// Each node corresponds to a rule prefix (RulePath) and stores its visual and structural properties, including metrics for layout (angle, radius),
     /// and metrics for data-driving sizing (support, lift).
     struct Node {
-        // TODO replace by unique ids
+
         RulePath path_id; ///< Unique identifier of the node, given by its rule path.
         unsigned step; ///< Depth in the tree; equal to path_id.size().
-        // TODO turn item into label (string)
         int item; ///< ID of the item represented by this node (last item in path).
 
         int leafcount; ///< Number of leaf nodes in the subtree rooted at this node.
@@ -82,9 +81,7 @@ namespace coral_plots {
     /// Edges represent relationships between parent and child rule paths.
     /// Each edge arries associated metrics and visual coordinates for rendering.
     struct Edge {
-        // TODO replace by unique ids
         RulePath parent_path; ///< Rule path of the parent node.
-        // TODO replace by unique ids
         RulePath child_path; ///< Rule path of the child node.
 
         double support; ///< Support value for the transition represented by this edge.
@@ -97,30 +94,7 @@ namespace coral_plots {
         double x_end; ///< X-coordinate of the end (child) node.
         double y_end; ///< Y-coordinate of the end (child) node.
         double z_end; ///< Z-coordinate of the end (child) node.
-
-        double line_width; ///< Width of the edge line, scaled by support.
-        int lift_bin; ///< Optional bin index for categorizing lift (not currently used).
     };
-
-    /// @brief Entry point to build coral plots from association rules.
-    ///
-    /// This function is intended for external use and wraps the build_layout function.
-    /// It outputs timing information to R console and manages input parameters including the rule set, node and edge containers, item ID mappings, and the grid size.
-    ///
-    /// @param rules Vector of Rule objects representing association rules.
-    /// @param[out] edges Vector to be populated with edges of the coral plot.
-    /// @param[out] nodes Vector to be populated with nodes of the coral plot.
-    /// @param item_to_id Unordered map for mapping item strings to their integer IDs.
-    /// @param id_to_item Vector mapping item IDs to their string names.
-    /// @param grid_size Number of cells per dimension in the grid layout.
-    void buildCoralPlots(
-        const std::vector<Rule> &rules,
-        std::vector<Edge> &edges,
-        std::vector<Node> &nodes,
-        std::unordered_map<std::string, int> &item_to_id,
-        const std::vector<std::string> &id_to_item,
-        int grid_size
-    );
 }
 
 #endif //CORAL_PLOTS_H

@@ -10,29 +10,6 @@
 
 namespace coral_plots {
 
-    static inline std::string trim_copy(std::string s) {
-        auto not_space = [](int ch) { return !std::isspace(ch); };
-        s.erase(s.begin(), std::find_if(s.begin(), s.end(), not_space));
-        s.erase(std::find_if(s.rbegin(), s.rend(), not_space).base(), s.end());
-        return s;
-    }
-    static inline std::vector<std::string> split_comma(std::string const& s) {
-        std::vector<std::string> out;
-        std::string part;
-        std::istringstream iss(s);
-        while (std::getline(iss, part, ',')) {
-            part = trim_copy(part);
-            if (!part.empty()) out.push_back(part);
-        }
-        return out;
-    }
-    static inline std::unordered_map<std::string, int>
-        make_str2id(const std::vector<std::string>& id_to_item) {
-        std::unordered_map<std::string, int> m;
-        for (int i = 0; i < (int)id_to_item.size(); ++i) m[id_to_item[i]] = i;
-        return m;
-    }
-
     void CoralLayoutBuilder::build(
         const std::vector<Rule> &rules,
         int grid_size,
@@ -40,12 +17,12 @@ namespace coral_plots {
         const std::vector<std::string> &id_to_item,
         std::vector<Node> &all_nodes,
         std::vector<Edge> &all_edges,
-		int metric_to_use
+		int metric_to_use,
+		const std::unordered_map<int, std::vector<int>>& rhs_components
     ) {
         auto rules_by_id = groupRulesById(rules);
         const auto rules_by_single_metrics = groupRulesBySingleMetrics(rules);
         const auto rules_by_consequent = groupRulesByConsequent(rules);
-        const auto str2id = make_str2id(id_to_item);
 
         auto paths_by_consequent = groupPathsByConsequent(rules_by_id, rules_by_consequent, id_to_item, rules_by_single_metrics, metric_to_use);
         all_nodes.clear();
@@ -56,22 +33,12 @@ namespace coral_plots {
             double x_off = plot_id / grid_size + 0.5;
             double z_off = plot_id % grid_size + 0.5;
 
-            // split combined RHS into item IDs (if any)
-            std::vector<int> root_item_ids;
-            {
-                const std::string& rhs_str = id_to_item[rhs];
-                auto parts = split_outside_brackets(rhs_str);
-                if (parts.empty()) {
-                    root_item_ids.push_back(rhs); // no split; keep original
-                }
-                else {
-                    for (auto const& p : parts) {
-                        auto it = str2id.find(p);
-                        if (it != str2id.end()) root_item_ids.push_back(it->second);
-                    }
-                    if (root_item_ids.empty()) root_item_ids.push_back(rhs); // fallback
-                }
-            }
+			std::vector<int> root_item_ids;
+			if (auto it = rhs_components.find(rhs); it != rhs_components.end() && !it->second.empty()) {
+			  root_item_ids = it->second;
+			} else {
+			  root_item_ids = { rhs };
+			}
 
             const auto metrics_by_path_id = groupMetricsByPathID(paths);
             auto children = calculateChildren(metrics_by_path_id);
@@ -90,16 +57,16 @@ namespace coral_plots {
             auto max_depth = determineMaxDepth(metrics_by_path_id);
             auto [a_start, a_end] = computeAngularSpans(root, max_depth, children, leaf_counts, metrics_by_path_id);
 
-            auto coordinates = buildNodes(
-                x_off, z_off,
-                support_node, lift_node,
-                root, max_depth, 0.5,  // max_radius passed in earlier; keep 0.5 here consistent
-                leaf_counts, metrics_by_path_id,
-                a_start, a_end,
-                all_nodes,
-                id_to_item,
-                root_item_ids               // <-- pass here
-            );
+			auto coordinates = buildNodes(
+			  x_off, z_off,
+			  support_node, lift_node,
+			  root, max_depth, max_radius,
+			  leaf_counts, metrics_by_path_id,
+			  a_start, a_end,
+			  all_nodes,
+			  id_to_item,
+			  root_item_ids
+			);
 
             buildEdges(paths, coordinates, all_edges);
             ++plot_id;
@@ -460,12 +427,6 @@ namespace coral_plots {
 
             std::tie(e.x_start, e.y_start, e.z_start) = coordinates[parent];
             std::tie(e.x_end, e.y_end, e.z_end) = coordinates[child];
-
-            // line width from [1..5]
-            if (max_s > min_s)
-                e.line_width = (p.support - min_s) / (max_s - min_s) * 4.0 + 1.0;
-            else
-                e.line_width = 3.0;
 
             all_edges.push_back(std::move(e));
         }

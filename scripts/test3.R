@@ -76,7 +76,7 @@ render_coral_rgl(
   layout$nodes, layout$edges, layout$grid_size,
   grid_color = "grey80",
   legend     = TRUE,
-  label_mode   = "none",
+  label_mode   = "item",
   label_cex    = 0.7,
   label_offset = 1.5,
   max_labels   = 100,

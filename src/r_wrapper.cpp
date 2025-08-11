@@ -8,7 +8,6 @@
 
 #include "coral_plots.h"
 #include "coral_layout_builder.h"
-#include "string_splitter.h"
 
 using namespace Rcpp;
 
@@ -89,36 +88,67 @@ Rcpp::List build_layout_cpp(Rcpp::List parsed,
   std::vector<coral_plots::Rule> cpp_rules;
   cpp_rules.reserve(N);
 
-  // build composite RHS labels so multiple RHS items share a single "root" id
-  for (int i=0;i<N;++i) {
-    // LHS
-    std::vector<int> lhs_vec;
-    if (lhs_ids_list[i] != R_NilValue) {
-      lhs_vec = to_std_vec(IntegerVector(lhs_ids_list[i]));
-    }
+	std::unordered_map<int, std::vector<int>> rhs_components;
 
-    // RHS composite label
-    std::string rhs_label;
-    if (rhs_ids_list[i] != R_NilValue) {
-      auto rhs_vec = to_std_vec(IntegerVector(rhs_ids_list[i]));
-      for (size_t k=0;k<rhs_vec.size();++k) {
-        if (k) rhs_label += ", ";
-        int id = rhs_vec[k];
-        if (id < 0 || id >= M) stop("build_layout_cpp: rhs item_id out of range.");
-        rhs_label += id_to_item[id];
-      }
-    }
+	// dedicated registry for composite RHS roots
+	std::unordered_map<std::string,int> rhs_label_to_id;
+	std::vector<std::string>            rhs_id_to_label;
 
-    int rhs_id = get_item_id(item_to_id, id_to_item, rhs_label);
-    coral_plots::Rule r;
-    r.rule_id    = rule_id[i];
-    r.consequent = rhs_id;
-    r.antecedent = std::move(lhs_vec);
-    r.support    = support_col[i];
-    r.confidence = conf_col[i];
-    r.lift       = lift_col[i];
-    cpp_rules.push_back(std::move(r));
-  }
+	// helper for composite RHS root ids
+	auto get_rhs_root_id = [&](const std::string& lab) -> int {
+	  auto it = rhs_label_to_id.find(lab);
+	  if (it != rhs_label_to_id.end()) return it->second;
+	  int nid = static_cast<int>(rhs_id_to_label.size());
+	  rhs_label_to_id.emplace(lab, nid);
+	  rhs_id_to_label.push_back(lab);
+	  return nid;
+	};
+
+	for (int i = 0; i < N; ++i) {
+	  
+	  // LHS
+	  std::vector<int> lhs_vec;
+	  if (lhs_ids_list[i] != R_NilValue) {
+		lhs_vec = to_std_vec(Rcpp::IntegerVector(lhs_ids_list[i]));
+	  }
+
+	  // RHS items as ids
+	  std::vector<int> rhs_vec;
+	  if (rhs_ids_list[i] != R_NilValue) {
+		rhs_vec = to_std_vec(Rcpp::IntegerVector(rhs_ids_list[i]));
+	  }
+
+	  // enforce non-empty RHS
+	  if (rhs_vec.empty()) {
+		Rcpp::stop("build_layout_cpp: encountered a rule with empty RHS; not supported.");
+	  }
+
+	  // build composite RHS label from atomic item labels (preserve order)
+	  std::string rhs_label;
+	  rhs_label.reserve(rhs_vec.size() * 8);
+	  for (size_t k = 0; k < rhs_vec.size(); ++k) {
+		int id = rhs_vec[k];
+		if (id < 0 || id >= M) Rcpp::stop("build_layout_cpp: rhs item_id out of range.");
+		if (k) rhs_label += ", ";
+		rhs_label += id_to_item[id];
+	  }
+
+	  // assign a composite root id
+	  int rhs_root_id = get_rhs_root_id(rhs_label);
+
+	  // record components for this composite root
+	  rhs_components[rhs_root_id] = rhs_vec;
+
+	  // push rule
+	  coral_plots::Rule r;
+	  r.rule_id    = rule_id[i];
+	  r.consequent = rhs_root_id;
+	  r.antecedent = std::move(lhs_vec);
+	  r.support    = support_col[i];
+	  r.confidence = conf_col[i];
+	  r.lift       = lift_col[i];
+	  cpp_rules.push_back(std::move(r));
+	}
 
   // metric selector for LHS sorting
   int metric_to_use = 0; // 0=confidence, 1=support, 2=lift
@@ -130,7 +160,7 @@ Rcpp::List build_layout_cpp(Rcpp::List parsed,
   std::vector<coral_plots::Node> nodes;
 
   coral_plots::CoralLayoutBuilder::build(
-    cpp_rules, grid_size, 0.4, id_to_item, nodes, edges, metric_to_use
+    cpp_rules, grid_size, 0.4, id_to_item, nodes, edges, metric_to_use, rhs_components
   );
 
   int E = static_cast<int>(edges.size());
