@@ -7,11 +7,23 @@
 build_layout_cpp(parsed, grid_size, lhs_sort = "confidence")
 }
 \arguments{
-\item{parsed}{TODO}
+\item{parsed}{A list as returned by `parse_rules()`, with components:
+\itemize{
+  \item \code{items}: \code{data.frame} with at least
+    \code{item_id} (integer, 0-based) and \code{label} (character).
+  \item \code{rules}: \code{data.frame} with at least
+    \code{rule_id} (integer), \code{support}, \code{confidence}, \code{lift}
+    (numeric), and list-columns \code{lhs_item_ids}, \code{rhs_item_ids}
+    containing 0-based integer vectors.
+}}
 
-\item{grid_size}{Number of grid cells per layout dimension to use during node positioning.}
+\item{grid_size}{Integer; number of grid cells per layout side used to place
+corals on a near-square grid (e.g., 3 means a 3×3 canvas)}
 
-\item{lhs_sort}{The sorting metric for tzhe antecedent}
+\item{lhs_sort}{Character; metric used to sort antecedent items within each
+LHS path when building the layout. One of \code{"confidence"},
+\code{"support"}, \code{"lift"} (default \code{"confidence"}). Sorting is
+applied in descending order of the chosen metric.}
 }
 \value{
 A List containing two DataFrames:

@@ -1,36 +1,123 @@
-#' @title applies styling to coral plots and renders them using rgl
+#' @title Apply styling to coral plots and render them with rgl
 #'
 #' @description
-#' Expects nodes/edges from build_coral_layout(). Edges must contain
-#' columns: x,y,z,x_end,y_end,z_end and metrics: support, confidence, lift.
+#' Renders a 3D "coral" plot produced by `build_coral_layout()`, with
+#' edge width/color/alpha mapped from association rule metrics and node
+#' colors derived from item/type groupings. The function draws a floor grid,
+#' edges as 3D segments, nodes as spheres, and optional labels/legend.
 #'
-#' @param nodes data.frame from build_coral_layout()$nodes
-#' @param edges data.frame from build_coral_layout()$edges
-#' @param grid_size integer from build_coral_layout()$grid_size
-#' @param grid_color background grid color
-#' @param legend show a node legend (by base feature)
-#' @param label_mode "none"|"interval"|"item"|"interval_short"
-#' @param label_cex label size
-#' @param label_offset vertical offset in radii
-#' @param max_labels max non-root labels to be shown
-#' @param edge_width_metric which metric to map to edge width
-#' @param edge_color_metric which metric to map to edge width
-#' @param edge_alpha_metric which metric to map to edge width
-#' @param edge_width_range numeric length-2, min/max lwd
-#' @param edge_width_transform "linear"|"sqrt"|"log"
-#' @param edge_gradient character vector (>=2) for edge colors
-#' @param edge_color_transform "linear"|"sqrt"|"log"
-#' @param edge_alpha edge transparency (0..1)
-#' @param edge_alpha_range TODO
-#' @param edge_alpha_transform "linear"|"sqrt"|"log"
-#' @param node_color_by TODO
-#' @param node_gradient TODO
-#' @param node_gradient_map TODO
-#' @param return_data used for testing only
-#' @param y_scale numeric scalar; vertical scale (0 = flat, default).
-#' @param jitter_sd TODO
-#' @param jitter_mode TODO
-#' @param jitter_seed TODO,
+#' **Required columns**
+#' - `edges`: `x`, `y`, `z`, `x_end`, `y_end`, `z_end`,
+#'   `parent_path`, `child_path`, and metric columns `support`, `confidence`, `lift`.
+#' - `nodes`: `x`, `z`, `x_offset`, `z_offset`, `radius`, `path`.
+#'
+#' **Optional columns**
+#' - `nodes$item`, `nodes$feature` (for labels/legend & color-by),
+#'   `nodes$step` (roots identified as `step == 0`),
+#'   `nodes$interval_label`, `nodes$interval_label_short` (label text when requested).
+#'
+#' @param nodes data.frame; typically `build_coral_layout()$nodes`. Must contain
+#'   `x`, `z`, `x_offset`, `z_offset`, `radius`, `path`. Optional: `item`,
+#'   `feature`, `step`, `interval_label`, `interval_label_short`.
+#' @param edges data.frame; typically `build_coral_layout()$edges`. Must contain
+#'   `x`, `y`, `z`, `x_end`, `y_end`, `z_end`, `parent_path`, `child_path`,
+#'   and metric columns `support`, `confidence`, `lift`.
+#' @param grid_size integer; the layout grid size (usually `build_coral_layout()$grid_size`).
+#' @param grid_color background grid color. Any R color spec. Default `"grey80"`.
+#' @param legend logical; draw a node legend keyed by base feature (`nodes$feature`).
+#'   Requires that `nodes$feature` and node colors are available. Default `FALSE`.
+#' @param label_mode one of `"none"`, `"interval"`, `"item"`, `"interval_short"`.
+#'   Controls label text: interval labels, item labels, or no labels.
+#' @param label_cex numeric; label size passed to `rgl::text3d()`. Default `0.7`.
+#' @param label_offset numeric; vertical offset (in **node radii**) applied
+#'   to labels (positive values move labels downward from sphere tops). Default `1.5`.
+#' @param max_labels integer; maximum number of **non-root** labels to keep (largest radii first).
+#'   Root nodes are always kept. Default `100`.
+#'
+#' @param edge_width_metric character; which metric to map to edge **width**.
+#'   One of `"confidence"`, `"lift"`, `"support"`. Default `"confidence"`.
+#' @param edge_color_metric character; which metric to map to edge **color**.
+#'   One of `"confidence"`, `"lift"`, `"support"`. Default `"confidence"`.
+#' @param edge_alpha_metric character or `NULL`; which metric to map to edge **alpha**
+#'   (transparency). One of `"support"`, `"lift"`, `"confidence"`, or `NULL` to use the
+#'   constant `edge_alpha`. Default `NULL`.
+#'
+#' @param edge_width_range numeric length-2; min/max line width for edges after scaling.
+#'   Default `c(1, 5)`.
+#' @param edge_width_transform character; transformation for width scaling from normalized
+#'   metric in `[0,1]`. One of `"linear"`, `"sqrt"`, `"log"`. Default `"linear"`.
+#'
+#' @param edge_gradient character vector (>= 2); color ramp for edges, passed to
+#'   `grDevices::colorRamp()`. Default
+#'   `c("#2166AC","#67A9CF","#D1E5F0","#FDDBC7","#EF8A62","#B2182B")`.
+#' @param edge_color_transform character; transformation for color scaling from normalized
+#'   metric in `[0,1]`. One of `"linear"`, `"sqrt"`, `"log"`. Default `"linear"`.
+#'
+#' @param edge_alpha numeric in `[0,1]`; constant alpha used **only when**
+#'   `edge_alpha_metric` is `NULL`. Default `0.6`.
+#' @param edge_alpha_range numeric length-2 in `[0,1]`; min/max alpha used **only when**
+#'   `edge_alpha_metric` is not `NULL`. Default `c(0.25, 0.5)`.
+#' @param edge_alpha_transform character; transformation for alpha scaling from normalized
+#'   metric in `[0,1]`. One of `"linear"`, `"sqrt"`, `"log"`. Default `"linear"`.
+#'
+#' @param node_color_by one of `"type"`, `"item"`, `"none"`, `"edge_incoming"`, `"edge_outgoing_mean"`.
+#'   Controls node coloring:
+#'   - `"type"` colors by `nodes$feature` (recommended).
+#'   - `"item"` colors by `nodes$item`.
+#'   - `"none"` leaves default colors.
+#'   - `"edge_incoming"` / `"edge_outgoing_mean"` are reserved for future use.
+#'   **Note:** current implementation applies custom colors only for `"type"` and `"item"`.
+#'   Default `"type"`.
+#' @param node_gradient either the string `"match"` to reuse `edge_gradient` for nodes,
+#'   or a character vector (>= 2) of colors to build the node palette. Default `"match"`.
+#' @param node_gradient_map one of `"even"`, `"hash"`, `"frequency"`; how unique labels are
+#'   placed along the gradient:
+#'   - `"even"`: evenly spaced by sorted unique label order,
+#'   - `"hash"`: stable per-label positions via a lightweight hash (good for reproducibility),
+#'   - `"frequency"`: labels ordered by frequency (most frequent near one end).
+#'   Default `"even"`.
+#'
+#' @param y_scale numeric scalar; vertical scale factor applied to each node’s normalized
+#'   radial distance from its local center (`x_offset`,`z_offset`). `0` keeps the
+#'   plot flat; try `0.5`–`0.8` for gentle relief. Default `0`.
+#'
+#' @param jitter_sd numeric; standard deviation of vertical jitter added to nodes,
+#'   multiplied by the normalized radius so jitter fades toward the center. Default `0`.
+#' @param jitter_mode one of `"deterministic"` or `"random"`. Deterministic jitter
+#'   derives noise from `nodes$path` (requires that column); random jitter uses `rnorm()`.
+#'   Default `"deterministic"`.
+#' @param jitter_seed integer or `NULL`; RNG seed for reproducible **random** jitter.
+#'   Ignored for `"deterministic"` mode. Default `NULL`.
+#'
+#' @param return_data logical; if `TRUE`, returns a list with augmented `nodes` and `edges`
+#'   (including computed `color`, `width`, `y`, etc.) instead of just drawing. The plot is
+#'   still created. Default `FALSE`.
+#'
+#' @details
+#' Metric scaling uses the helper `.norm_metric()` which:
+#' 1) rescales the chosen metric to `[0,1]` over finite values, and
+#' 2) applies the selected transform:
+#'    - `"linear"`: identity,
+#'    - `"sqrt"`: emphasizes differences at the low end,
+#'    - `"log"`: `log1p(9*t)/log(10)`, emphasizing very small values.
+#'
+#' Node elevation (`y`) is computed as `y_scale * r_norm` where `r_norm` is the node’s
+#' radial distance from its center normalized to the max within that coral. Optional jitter
+#' is added (fading to zero at the center). Root nodes (`step == 0`) that overlap are
+#' vertically stacked with small stems for readability.
+#'
+#' @return
+#' Invisibly returns `NULL` after drawing. If `return_data = TRUE`, returns (invisibly)
+#' a list with components:
+#' - `nodes`: input `nodes` with added columns `y`, `color` (and possibly stacked
+#'   draw positions for roots),
+#' - `edges`: input `edges` with added columns `width`, `color`, `t_color_norm`,
+#'   `y`, `y_end`, and `width_binned`.
+#'
+#' @section Requirements:
+#' Requires an interactive OpenGL device (`rgl`). On headless systems, consider
+#' using an off-screen context or skipping examples.
+#'
 #' @importFrom rgl open3d par3d aspect3d lines3d segments3d spheres3d view3d text3d material3d bgplot3d
 #' @importFrom dplyr distinct
 #' @export
@@ -178,16 +265,16 @@ render_coral_rgl <- function(
   }
   
   #### y from radius (styling) + optional jitter
-  # 1) base radial distance and per-plot normalization (so max radius -> 1)
+  # base radial distance and per-plot normalization (so max radius -> 1)
   r <- sqrt((nodes$x - nodes$x_offset)^2 + (nodes$z - nodes$z_offset)^2)
   key_center <- paste0(sprintf("%.6f", nodes$x_offset), "_", sprintf("%.6f", nodes$z_offset))
   r_max <- ave(r, key_center, FUN = function(v) if (length(v) && max(v) > 0) max(v) else 1)
   r_norm <- ifelse(r_max > 0, r / r_max, 0)
   
-  # 2) base y
+  # base y
   nodes$y <- y_scale * r_norm
   
-  # 3) jitter that fades to 0 at the center (multiplied by r_norm)
+  # jitter that fades to 0 at the center (multiplied by r_norm)
   if (jitter_sd > 0) {
     if (jitter_mode == "random") {
       if (!is.null(jitter_seed)) {
@@ -319,31 +406,4 @@ render_coral_rgl <- function(
   
   if (return_data) return(invisible(list(nodes = nodes, edges = edges)))
   invisible(NULL)
-}
-
-# Fill colors for a set of labels, honoring user overrides.
-# - labels: character vector (usually unique labels)
-# - user_map: optional named vector of colors, names must match labels
-# - hcl_c / hcl_l: chroma & luminance for auto HCL palette
-.coral_auto_fill_named_colors <- function(labels, user_map = NULL, hcl_c = 80, hcl_l = 50) {
-  labels <- unique(as.character(labels))
-  # start with NA, keep names = labels
-  out <- setNames(rep(NA_character_, length(labels)), labels)
-  
-  # apply user overrides where names match exactly
-  if (!is.null(user_map)) {
-    user_map <- as.character(user_map)
-    hit <- intersect(names(user_map), labels)
-    if (length(hit)) out[hit] <- user_map[hit]
-  }
-  
-  # auto-fill the rest with evenly spaced HCL hues
-  miss <- names(out)[is.na(out) | !nzchar(out)]
-  if (length(miss)) {
-    k <- length(miss)
-    hues <- seq(15, 375, length.out = k + 1)[1:k]
-    out[miss] <- grDevices::hcl(h = hues, c = hcl_c, l = hcl_l)
-  }
-  
-  out  # <- KEEP NAMES
 }

@@ -64,20 +64,6 @@
 #' @section Errors:
 #' Throws an error if required columns are missing or have inconsistent lengths.
 #'
-#' @seealso \code{\link{parse_rules}} for the high-level, user-facing wrapper.
-#'
-#' @examples
-#' df <- data.frame(
-#'   Antecedent  = c("A = a", "B = b", "A = a, B = b", "C in [1, 2]", "D >= 10"),
-#'   Consequence = c("Y = y1", "Y = y1", "Y = y1", "{Z = z1, W = w1}", "Z = z2"),
-#'   Support     = c(0.20, 0.60, 0.30, 0.20, 0.10),
-#'   Confidence  = c(0.90, 0.40, 0.80, 0.60, 0.30),
-#'   Fitness     = c(2.20, 1.10, 2.00, 1.50, 0.90),
-#'   stringsAsFactors = FALSE
-#' )
-#' out <- parse_rules_cpp(df)
-#' names(out)  # "items", "rules"
-#'
 #' @keywords internal
 #' @export
 parse_rules_cpp <- function(rules_df) {
@@ -93,15 +79,28 @@ parse_rules_cpp <- function(rules_df) {
 #'    \item Converts the resulting nodes and edges into R-compatible data frames.
 #' }
 #'
-#' @param parsed TODO
-#' @param grid_size Number of grid cells per layout dimension to use during node positioning.
-#' @param lhs_sort The sorting metric for tzhe antecedent
+#' @param parsed A list as returned by `parse_rules()`, with components:
+#' \itemize{
+#'   \item \code{items}: \code{data.frame} with at least
+#'     \code{item_id} (integer, 0-based) and \code{label} (character).
+#'   \item \code{rules}: \code{data.frame} with at least
+#'     \code{rule_id} (integer), \code{support}, \code{confidence}, \code{lift}
+#'     (numeric), and list-columns \code{lhs_item_ids}, \code{rhs_item_ids}
+#'     containing 0-based integer vectors.
+#' }
+#' @param grid_size Integer; number of grid cells per layout side used to place
+#' corals on a near-square grid (e.g., 3 means a 3×3 canvas)
+#' @param lhs_sort Character; metric used to sort antecedent items within each
+#' LHS path when building the layout. One of \code{"confidence"},
+#' \code{"support"}, \code{"lift"} (default \code{"confidence"}). Sorting is
+#' applied in descending order of the chosen metric.
 #'
 #' @return A List containing two DataFrames:
 #' \itemize{
 #'    \item \code{edges}: DataFrame with start and end coordinates, line width, and color for each edge.
 #'    \item \code{nodes}: DataFrame with position, radius, ID, and item label for each node.
 #' }
+#'
 #' @keywords internal
 #' @export
 build_layout_cpp <- function(parsed, grid_size, lhs_sort = "confidence") {

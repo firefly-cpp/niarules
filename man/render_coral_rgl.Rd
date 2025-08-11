@@ -2,7 +2,7 @@
 % Please edit documentation in R/coral_plot_visualization.R
 \name{render_coral_rgl}
 \alias{render_coral_rgl}
-\title{applies styling to coral plots and renders them using rgl}
+\title{Apply styling to coral plots and render them with rgl}
 \usage{
 render_coral_rgl(
   nodes,
@@ -35,61 +35,141 @@ render_coral_rgl(
 )
 }
 \arguments{
-\item{nodes}{data.frame from build_coral_layout()$nodes}
+\item{nodes}{data.frame; typically `build_coral_layout()$nodes`. Must contain
+`x`, `z`, `x_offset`, `z_offset`, `radius`, `path`. Optional: `item`,
+`feature`, `step`, `interval_label`, `interval_label_short`.}
 
-\item{edges}{data.frame from build_coral_layout()$edges}
+\item{edges}{data.frame; typically `build_coral_layout()$edges`. Must contain
+`x`, `y`, `z`, `x_end`, `y_end`, `z_end`, `parent_path`, `child_path`,
+and metric columns `support`, `confidence`, `lift`.}
 
-\item{grid_size}{integer from build_coral_layout()$grid_size}
+\item{grid_size}{integer; the layout grid size (usually `build_coral_layout()$grid_size`).}
 
-\item{grid_color}{background grid color}
+\item{grid_color}{background grid color. Any R color spec. Default `"grey80"`.}
 
-\item{legend}{show a node legend (by base feature)}
+\item{legend}{logical; draw a node legend keyed by base feature (`nodes$feature`).
+Requires that `nodes$feature` and node colors are available. Default `FALSE`.}
 
-\item{label_mode}{"none"|"interval"|"item"|"interval_short"}
+\item{label_mode}{one of `"none"`, `"interval"`, `"item"`, `"interval_short"`.
+Controls label text: interval labels, item labels, or no labels.}
 
-\item{label_cex}{label size}
+\item{label_cex}{numeric; label size passed to `rgl::text3d()`. Default `0.7`.}
 
-\item{label_offset}{vertical offset in radii}
+\item{label_offset}{numeric; vertical offset (in **node radii**) applied
+to labels (positive values move labels downward from sphere tops). Default `1.5`.}
 
-\item{max_labels}{max non-root labels to be shown}
+\item{max_labels}{integer; maximum number of **non-root** labels to keep (largest radii first).
+Root nodes are always kept. Default `100`.}
 
-\item{edge_width_metric}{which metric to map to edge width}
+\item{edge_width_metric}{character; which metric to map to edge **width**.
+One of `"confidence"`, `"lift"`, `"support"`. Default `"confidence"`.}
 
-\item{edge_color_metric}{which metric to map to edge width}
+\item{edge_color_metric}{character; which metric to map to edge **color**.
+One of `"confidence"`, `"lift"`, `"support"`. Default `"confidence"`.}
 
-\item{edge_alpha_metric}{which metric to map to edge width}
+\item{edge_alpha_metric}{character or `NULL`; which metric to map to edge **alpha**
+(transparency). One of `"support"`, `"lift"`, `"confidence"`, or `NULL` to use the
+constant `edge_alpha`. Default `NULL`.}
 
-\item{edge_width_range}{numeric length-2, min/max lwd}
+\item{edge_width_range}{numeric length-2; min/max line width for edges after scaling.
+Default `c(1, 5)`.}
 
-\item{edge_width_transform}{"linear"|"sqrt"|"log"}
+\item{edge_width_transform}{character; transformation for width scaling from normalized
+metric in `[0,1]`. One of `"linear"`, `"sqrt"`, `"log"`. Default `"linear"`.}
 
-\item{edge_gradient}{character vector (>=2) for edge colors}
+\item{edge_gradient}{character vector (>= 2); color ramp for edges, passed to
+`grDevices::colorRamp()`. Default
+`c("#2166AC","#67A9CF","#D1E5F0","#FDDBC7","#EF8A62","#B2182B")`.}
 
-\item{edge_color_transform}{"linear"|"sqrt"|"log"}
+\item{edge_color_transform}{character; transformation for color scaling from normalized
+metric in `[0,1]`. One of `"linear"`, `"sqrt"`, `"log"`. Default `"linear"`.}
 
-\item{edge_alpha}{edge transparency (0..1)}
+\item{edge_alpha}{numeric in `[0,1]`; constant alpha used **only when**
+`edge_alpha_metric` is `NULL`. Default `0.6`.}
 
-\item{edge_alpha_range}{TODO}
+\item{edge_alpha_range}{numeric length-2 in `[0,1]`; min/max alpha used **only when**
+`edge_alpha_metric` is not `NULL`. Default `c(0.25, 0.5)`.}
 
-\item{edge_alpha_transform}{"linear"|"sqrt"|"log"}
+\item{edge_alpha_transform}{character; transformation for alpha scaling from normalized
+metric in `[0,1]`. One of `"linear"`, `"sqrt"`, `"log"`. Default `"linear"`.}
 
-\item{node_color_by}{TODO}
+\item{node_color_by}{one of `"type"`, `"item"`, `"none"`, `"edge_incoming"`, `"edge_outgoing_mean"`.
+Controls node coloring:
+- `"type"` colors by `nodes$feature` (recommended).
+- `"item"` colors by `nodes$item`.
+- `"none"` leaves default colors.
+- `"edge_incoming"` / `"edge_outgoing_mean"` are reserved for future use.
+**Note:** current implementation applies custom colors only for `"type"` and `"item"`.
+Default `"type"`.}
 
-\item{node_gradient}{TODO}
+\item{node_gradient}{either the string `"match"` to reuse `edge_gradient` for nodes,
+or a character vector (>= 2) of colors to build the node palette. Default `"match"`.}
 
-\item{node_gradient_map}{TODO}
+\item{node_gradient_map}{one of `"even"`, `"hash"`, `"frequency"`; how unique labels are
+placed along the gradient:
+- `"even"`: evenly spaced by sorted unique label order,
+- `"hash"`: stable per-label positions via a lightweight hash (good for reproducibility),
+- `"frequency"`: labels ordered by frequency (most frequent near one end).
+Default `"even"`.}
 
-\item{y_scale}{numeric scalar; vertical scale (0 = flat, default).}
+\item{y_scale}{numeric scalar; vertical scale factor applied to each node’s normalized
+radial distance from its local center (`x_offset`,`z_offset`). `0` keeps the
+plot flat; try `0.5`–`0.8` for gentle relief. Default `0`.}
 
-\item{jitter_sd}{TODO}
+\item{jitter_sd}{numeric; standard deviation of vertical jitter added to nodes,
+multiplied by the normalized radius so jitter fades toward the center. Default `0`.}
 
-\item{jitter_mode}{TODO}
+\item{jitter_mode}{one of `"deterministic"` or `"random"`. Deterministic jitter
+derives noise from `nodes$path` (requires that column); random jitter uses `rnorm()`.
+Default `"deterministic"`.}
 
-\item{jitter_seed}{TODO,}
+\item{jitter_seed}{integer or `NULL`; RNG seed for reproducible **random** jitter.
+Ignored for `"deterministic"` mode. Default `NULL`.}
 
-\item{return_data}{used for testing only}
+\item{return_data}{logical; if `TRUE`, returns a list with augmented `nodes` and `edges`
+(including computed `color`, `width`, `y`, etc.) instead of just drawing. The plot is
+still created. Default `FALSE`.}
+}
+\value{
+Invisibly returns `NULL` after drawing. If `return_data = TRUE`, returns (invisibly)
+a list with components:
+- `nodes`: input `nodes` with added columns `y`, `color` (and possibly stacked
+  draw positions for roots),
+- `edges`: input `edges` with added columns `width`, `color`, `t_color_norm`,
+  `y`, `y_end`, and `width_binned`.
 }
 \description{
-Expects nodes/edges from build_coral_layout(). Edges must contain
-columns: x,y,z,x_end,y_end,z_end and metrics: support, confidence, lift.
+Renders a 3D "coral" plot produced by `build_coral_layout()`, with
+edge width/color/alpha mapped from association rule metrics and node
+colors derived from item/type groupings. The function draws a floor grid,
+edges as 3D segments, nodes as spheres, and optional labels/legend.
+
+**Required columns**
+- `edges`: `x`, `y`, `z`, `x_end`, `y_end`, `z_end`,
+  `parent_path`, `child_path`, and metric columns `support`, `confidence`, `lift`.
+- `nodes`: `x`, `z`, `x_offset`, `z_offset`, `radius`, `path`.
+
+**Optional columns**
+- `nodes$item`, `nodes$feature` (for labels/legend & color-by),
+  `nodes$step` (roots identified as `step == 0`),
+  `nodes$interval_label`, `nodes$interval_label_short` (label text when requested).
 }
+\details{
+Metric scaling uses the helper `.norm_metric()` which:
+1) rescales the chosen metric to `[0,1]` over finite values, and
+2) applies the selected transform:
+   - `"linear"`: identity,
+   - `"sqrt"`: emphasizes differences at the low end,
+   - `"log"`: `log1p(9*t)/log(10)`, emphasizing very small values.
+
+Node elevation (`y`) is computed as `y_scale * r_norm` where `r_norm` is the node’s
+radial distance from its center normalized to the max within that coral. Optional jitter
+is added (fading to zero at the center). Root nodes (`step == 0`) that overlap are
+vertically stacked with small stems for readability.
+}
+\section{Requirements}{
+
+Requires an interactive OpenGL device (`rgl`). On headless systems, consider
+using an off-screen context or skipping examples.
+}
+

@@ -156,20 +156,6 @@ static int get_item_id(std::unordered_map<std::string, int>& lookup,
 //' @section Errors:
 //' Throws an error if required columns are missing or have inconsistent lengths.
 //'
-//' @seealso \code{\link{parse_rules}} for the high-level, user-facing wrapper.
-//'
-//' @examples
-//' df <- data.frame(
-//'   Antecedent  = c("A = a", "B = b", "A = a, B = b", "C in [1, 2]", "D >= 10"),
-//'   Consequence = c("Y = y1", "Y = y1", "Y = y1", "{Z = z1, W = w1}", "Z = z2"),
-//'   Support     = c(0.20, 0.60, 0.30, 0.20, 0.10),
-//'   Confidence  = c(0.90, 0.40, 0.80, 0.60, 0.30),
-//'   Fitness     = c(2.20, 1.10, 2.00, 1.50, 0.90),
-//'   stringsAsFactors = FALSE
-//' )
-//' out <- parse_rules_cpp(df)
-//' names(out)  # "items", "rules"
-//'
 //' @keywords internal
 //' @export
 // [[Rcpp::export]]
