@@ -1,4 +1,3 @@
-# tests/testthat/test-build-layout.R
 library(testthat)
 
 # minimal helper to make a layout-focused rules df
@@ -30,13 +29,13 @@ mk_layout_df <- function() {
   )
 }
 
-test_that("build_layout returns nodes/edges with expected columns and grid_size", {
+test_that("build_coral_plots returns nodes/edges with expected columns and grid_size", {
   df <- mk_layout_df()
   parsed <- parse_rules(df)
-  layout <- build_layout(parsed, lhs_sort_metric = "confidence", edge_metric = "confidence")
+  layout <- build_coral_plots(parsed, lhs_sort_metric = "confidence")
 
   expect_type(layout, "list")
-  expect_true(all(c("nodes","edges","edge_metric","edge_range","grid_size") %in% names(layout)))
+  expect_true(all(c("nodes","edges","grid_size") %in% names(layout)))
 
   nodes <- layout$nodes
   edges <- layout$edges
@@ -56,25 +55,17 @@ test_that("build_layout returns nodes/edges with expected columns and grid_size"
   ) %in% names(nodes)))
 
   # edges columns (geometry + styling)
-  expect_true(all(c("x","y","z","x_end","y_end","z_end","width","color") %in% names(edges)))
-  expect_true(is.numeric(edges$width))
-  expect_true(all(nchar(as.character(edges$color)) %in% c(7L, 9L))) # #RRGGBB or #AARRGGBB
+  expect_true(all(c("x","y","z","x_end","y_end","z_end","support","lift","confidence") %in% names(edges)))
 
   # grid_size should be ceil(sqrt(#unique combined RHS))
   # Here: "Y = y1", "Z = z1, W = w1", "Z = z2" => 3 unique -> grid_size = 2
   expect_equal(layout$grid_size, 2L)
-
-  # edge metadata pass-through
-  expect_equal(layout$edge_metric, "confidence")
-  expect_true(is.numeric(layout$edge_range))
-  expect_equal(length(layout$edge_range), 2L)
-  expect_true(all(is.finite(layout$edge_range)))
 })
 
 test_that("multi-RHS produces multiple root nodes at the same plot center", {
   df <- mk_layout_df()
   parsed <- parse_rules(df)
-  layout <- build_layout(parsed, lhs_sort_metric = "confidence")
+  layout <- build_coral_plots(parsed, lhs_sort_metric = "confidence")
 
   nodes <- layout$nodes
   expect_true("step" %in% names(nodes))
@@ -91,8 +82,8 @@ test_that("changing lhs_sort_metric changes geometry (A vs B order flips)", {
   df <- mk_layout_df()
   parsed <- parse_rules(df)
 
-  layout_conf <- build_layout(parsed, lhs_sort_metric = "confidence")
-  layout_supp <- build_layout(parsed, lhs_sort_metric = "support")
+  layout_conf <- build_coral_plots(parsed, lhs_sort_metric = "confidence")
+  layout_supp <- build_coral_plots(parsed, lhs_sort_metric = "support")
 
   # we don't rely on internal IDs; just compare edge geometry wholesale.
   e1 <- layout_conf$edges[, c("x","y","z","x_end","y_end","z_end")]
@@ -104,14 +95,4 @@ test_that("changing lhs_sort_metric changes geometry (A vs B order flips)", {
 
   # expect not all equal (different LHS ordering ⇒ different bundling/coords)
   expect_false(isTRUE(all.equal(r1, r2)))
-})
-
-test_that("edge_metric selection propagates to output metadata", {
-  df <- mk_layout_df()
-  parsed <- parse_rules(df)
-
-  layout_lift <- build_layout(parsed, lhs_sort_metric = "confidence", edge_metric = "lift")
-  expect_equal(layout_lift$edge_metric, "lift")
-  expect_equal(length(layout_lift$edge_range), 2L)
-  expect_true(is.numeric(layout_lift$edge_range))
 })

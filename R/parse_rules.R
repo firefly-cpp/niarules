@@ -1,6 +1,6 @@
-#' Parse association rules into a reusable, layout-agnostic structure.
+#' @title parses association rules into a reusable, layout-agnostic structure
 #'
-#' Accepts either:
+#' @description accepts either:
 #' - a data.frame with niarules-like columns (Antecedent, Consequence, Support, Confidence, Fitness), or
 #' - a native niarules rules object (written to CSV via niarules::write_association_rules_to_csv)
 #'

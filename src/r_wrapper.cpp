@@ -469,22 +469,17 @@ List buildCoralPlots(const DataFrame& rulesDF, int grid_size,
 // [[Rcpp::export]]
 Rcpp::List build_layout_cpp(Rcpp::List parsed,
                             int grid_size,
-                            std::string lhs_sort = "confidence",
-                            std::string edge_metric = "support",
-                            Rcpp::CharacterVector edge_gradient = Rcpp::CharacterVector::create("#2c7bb6","#d7191c")) {
+                            std::string lhs_sort = "confidence") {
+  
   // ---- unpack parsed ----
-  //DataFrame items = parsed["items"];
-  //DataFrame rules = parsed["rules"];
   Rcpp::DataFrame items = Rcpp::as<Rcpp::DataFrame>(parsed["items"]);
   Rcpp::DataFrame rules = Rcpp::as<Rcpp::DataFrame>(parsed["rules"]);
-
-
   IntegerVector item_id = items["item_id"];
   CharacterVector item_label = items["label"];
 
   const int M = items.nrow();
 
-  // id_to_item seeded with the existing atomic items (0-based!)
+  // id_to_item seeded with the existing atomic items (0-based)
   std::vector<std::string> id_to_item(M);
   for (int i=0;i<M;++i) id_to_item[i] = as<std::string>(item_label[i]);
   std::unordered_map<std::string,int> item_to_id;
@@ -533,37 +528,22 @@ Rcpp::List build_layout_cpp(Rcpp::List parsed,
     cpp_rules.push_back(std::move(r));
   }
 
-  // ---- metric selector for LHS sorting ----
+  // metric selector for LHS sorting
   int metric_to_use = 0; // 0=confidence, 1=support, 2=lift
   if (lhs_sort == "support") metric_to_use = 1;
   else if (lhs_sort == "lift") metric_to_use = 2;
 
-  // ---- run layout ----
+  // run layout
   std::vector<coral_plots::Edge> edges;
   std::vector<coral_plots::Node> nodes;
 
-  // New overload (see header/cpp tweak below) that takes metric_to_use
   coral_plots::CoralLayoutBuilder::build(
-    cpp_rules, grid_size, 0.5, id_to_item, nodes, edges, metric_to_use
+    cpp_rules, grid_size, 0.4, id_to_item, nodes, edges, metric_to_use
   );
 
-  // ---- edges: width + color via edge_metric + gradient ----
-  std::function<double(const coral_plots::Edge&)> getMetric;
-  if (edge_metric == "confidence")      getMetric = [](const coral_plots::Edge& e){return e.confidence;};
-  else if (edge_metric == "lift")       getMetric = [](const coral_plots::Edge& e){return e.lift;};
-  else { edge_metric = "support";       getMetric = [](const coral_plots::Edge& e){return e.support;}; }
-
   int E = static_cast<int>(edges.size());
-  double minV = std::numeric_limits<double>::infinity();
-  double maxV = -std::numeric_limits<double>::infinity();
-  for (const auto& e : edges) { double v = getMetric(e); if (v < minV) minV = v; if (v > maxV) maxV = v; }
-  bool constant = !(maxV > minV);
 
-  std::vector<std::tuple<int,int,int>> pal; pal.reserve(edge_gradient.size());
-  for (auto& s : edge_gradient) pal.push_back(hexToRGB(as<std::string>(s)));
-
-  NumericVector x(E), y(E), z(E), x_end(E), y_end(E), z_end(E), width(E);
-  CharacterVector color(E);
+  NumericVector x(E), y(E), z(E), x_end(E), y_end(E), z_end(E), support(E), lift(E), confidence(E);
   for (int i=0;i<E;++i) {
     x[i]     = edges[i].x_start;
     y[i]     = edges[i].y_start;
@@ -571,15 +551,14 @@ Rcpp::List build_layout_cpp(Rcpp::List parsed,
     x_end[i] = edges[i].x_end;
     y_end[i] = edges[i].y_end;
     z_end[i] = edges[i].z_end;
-    width[i] = edges[i].line_width;
-
-    double t = constant ? 0.5 : (getMetric(edges[i]) - minV) / (maxV - minV);
-    color[i] = samplePalette(t, pal);
+	support[i] = edges[i].support;
+	lift[i] = edges[i].lift;
+	confidence[i] = edges[i].confidence;
   }
   DataFrame edgesDF = DataFrame::create(
     _["x"]=x, _["y"]=y, _["z"]=z,
     _["x_end"]=x_end, _["y_end"]=y_end, _["z_end"]=z_end,
-    _["width"]=width, _["color"]=color,
+    _["support"]=support, _["lift"]=lift, _["confidence"]=confidence,
     _["stringsAsFactors"]=false
   );
 
@@ -625,8 +604,6 @@ Rcpp::List build_layout_cpp(Rcpp::List parsed,
 
   return List::create(
     _["edges"]       = edgesDF,
-    _["nodes"]       = nodesDF,
-    _["edge_metric"] = edge_metric,
-    _["edge_range"]  = NumericVector::create(minV, maxV)
+    _["nodes"]       = nodesDF
   );
 }

@@ -359,7 +359,6 @@ namespace coral_plots {
             const std::string& label = id_to_item[node.item];
             ParsedItem P = parse_interval_info(label);
             node.type = P.type;
-            Rcpp::Rcout << node.type << std::endl;
             node.kind = P.kind;
             node.interval_low = P.low;
             node.interval_high = P.high;
@@ -387,7 +386,6 @@ namespace coral_plots {
                 const std::string& label = id_to_item[node.item];
                 ParsedItem P = parse_interval_info(label);
                 node.type = P.type;
-                Rcpp::Rcout << node.type << std::endl;
                 node.kind = P.kind;
                 node.interval_low = P.low;
                 node.interval_high = P.high;
@@ -422,7 +420,6 @@ namespace coral_plots {
             const std::string& label = id_to_item[node.item];
             ParsedItem P = parse_interval_info(label);
             node.type = P.type;
-            Rcpp::Rcout << node.type << std::endl;
             node.kind = P.kind;
             node.interval_low = P.low;
             node.interval_high = P.high;

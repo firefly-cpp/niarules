@@ -67,21 +67,26 @@ df <- data.frame(
 )
 
 parsed = parse_rules(df)
-parsed
+#parsed
 
-edge_pal    <- c("#440154","#3B528B","#21908C","#5DC863","#FDE725")
-type_colors <- c(lhs1="#9E3D3D", lhs2="#006D77", lhs3="#8A5FBF", lhs4="#6E8000")
+layout = build_coral_plots(parsed)
+#layout
 
-layout = build_coral_layout(parsed, edge_gradient=edge_pal)
-layout
-
-#render_coral_rgl(layout$nodes, layout$edges, layout$grid_size,
-#                 label_mode="interval_short")
 render_coral_rgl(
   layout$nodes, layout$edges, layout$grid_size,
-  label_mode = "interval_short",
+  grid_color = "grey80",
   legend     = TRUE,
-  node_colors = type_colors,
-  node_color_by = "type",
-  max_labels = 0
+  label_mode   = "none",
+  label_cex    = 0.7,
+  label_offset = 1.5,
+  max_labels   = 100,
+  edge_metric  = "lift",
+  edge_width_range = c(1, 5),
+  edge_width_transform = "linear",
+  edge_gradient = c("#2166AC","#67A9CF","#D1E5F0","#FDDBC7","#EF8A62","#B2182B"),
+  edge_alpha   = 0.6,
+  node_color_by = "item",
+  node_colors   = c(lhs1="#9E3D3D", lhs2="#006D77", lhs3="#8A5FBF", lhs4="#6E8000"),
+  palette_hcl_c = 80,
+  palette_hcl_l = 50
 )
