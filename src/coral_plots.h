@@ -49,7 +49,6 @@ namespace coral_plots {
         int item; ///< ID of the item represented by this node (last item in path).
 
         int leafcount; ///< Number of leaf nodes in the subtree rooted at this node.
-        double support_node; ///< Average support of all outgoing edges from this node.
         double lift_node; ///< Average lift of all incoming edges to this node.
 
         double angle_start; ///< Starting angle for the node's angular span (in radians).
@@ -61,7 +60,6 @@ namespace coral_plots {
         double z_offset; ///< Z-coordinate of the grid cell center this node belongs to.
 
         double x; ///< Final x-position after layout calculation.
-        double y; ///< Final y-position (set to 0 in this layout).
         double z; ///< Final z-position after layout calculation.
 
         double node_radius; ///< Visual radius of the node, scaled by lift_node value.
@@ -89,10 +87,8 @@ namespace coral_plots {
         double lift; ///< Lift value for the transition represented by this edge.
 
         double x_start; ///< X-coordinate of the start (parent) node.
-        double y_start; ///< Y-coordinate of the start (parent) node.
         double z_start; ///< Z-coordinate of the start (parent) node.
         double x_end; ///< X-coordinate of the end (child) node.
-        double y_end; ///< Y-coordinate of the end (child) node.
         double z_end; ///< Z-coordinate of the end (child) node.
     };
 }

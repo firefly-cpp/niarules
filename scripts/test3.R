@@ -35,7 +35,7 @@ df <- data.frame(
     # depth 5 (one long tendril)
     "lhs19 <= 0,       lhs14 [2, 5],     lhs8 [0.4, 0.9), lhs4 > 10, lhs2 = A"
   ),
-  Consequence = "Outcome = yes, Narf=true",   # single RHS → single plot
+  Consequence = "Outcome = yes, Test=true, HaveFun = 0.1",   # single RHS → single plot
   Support    = c(
     # depth 1
     0.22, 0.20, 0.18, 0.17,
@@ -67,10 +67,10 @@ df <- data.frame(
 )
 
 parsed = parse_rules(df)
-#parsed
+parsed
 
 layout = build_coral_plots(parsed)
-#layout
+layout
 
 render_coral_rgl(
   layout$nodes, layout$edges, layout$grid_size,
@@ -89,7 +89,6 @@ render_coral_rgl(
   edge_alpha_range     = c(0.1, 0.2),
   edge_alpha_transform = "linear",
   node_color_by = "item",
-  node_colors   = c(lhs1="#9E3D3D", lhs2="#006D77", lhs3="#8A5FBF", lhs4="#6E8000"),
-  palette_hcl_c = 80,
-  palette_hcl_l = 50
+  node_gradient   = c(lhs1="#9E3D3D", lhs2="#006D77", lhs3="#8A5FBF", lhs4="#6E8000"),
+  y_scale = 0.15, jitter_sd = 0.015, jitter_mode = "deterministic"
 )

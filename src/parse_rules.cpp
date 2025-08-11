@@ -6,8 +6,8 @@
 #include <cctype>
 #include <algorithm>
 
-#include "string_splitter.h"   // for trim_copy
-#include "interval_parser.h"   // for parse_interval_info / ParsedItem
+#include "string_splitter.h"
+#include "interval_parser.h"
 
 using namespace Rcpp;
 
@@ -80,7 +80,6 @@ static std::vector<std::string> split_outside_brackets_comma_amp(std::string s) 
     flush();
     return parts;
 }
-
 
 // simple registry for item IDs (by exact trimmed string)
 static int get_item_id(std::unordered_map<std::string, int>& lookup,
@@ -309,7 +308,7 @@ Rcpp::List parse_rules_cpp(Rcpp::DataFrame rules_df) {
         rule_id[i] = i + 1; // 1-based for display
         out_support[i] = Support[i];
         out_confidence[i] = Confidence[i];
-        out_lift[i] = Fitness[i]; // niarules' "Fitness" treated as lift
+        out_lift[i] = Fitness[i];
         antecedent_length[i] = (int)lhs_vec.size();
         consequent_length[i] = (int)rhs_vec.size();
 
@@ -320,7 +319,7 @@ Rcpp::List parse_rules_cpp(Rcpp::DataFrame rules_df) {
     lhs_ids.attr("class") = "AsIs";
     rhs_ids.attr("class") = "AsIs";
 
-    // build items data.frame (0-based item_id by design)
+    // build items dataframe (0-based item_id by design)
     const int M = (int)id_to_item.size();
     IntegerVector item_id(M);
     CharacterVector label(M), feature(M), kind(M), category_value(M), op(M), label_long(M), label_short(M);

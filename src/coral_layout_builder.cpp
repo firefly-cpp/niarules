@@ -301,10 +301,6 @@ namespace coral_plots {
         const std::vector<std::string>& id_to_item,
         const std::vector<int>& root_item_ids
     ) {
-        // find global lift range
-        double min_l = 1e9, max_l = -1e9;
-        for (const auto& [_, val] : lift_node) { min_l = std::min(min_l, val); max_l = std::max(max_l, val); }
-
         std::map<RulePath, std::tuple<double, double, double> > coordinates;
         coordinates[root] = std::make_tuple(x_off, 0.0, z_off);
 
@@ -316,13 +312,11 @@ namespace coral_plots {
             node.step = 0;
             node.item = (root_item_ids.empty() ? root.back() : root_item_ids[0]);
             node.leafcount = leaf_counts[root];
-            node.support_node = support_node[root];
-            node.lift_node = lift_node[root];
             node.angle_start = 0.0; node.angle_end = 2 * PI; node.angle = 0.0;
             node.radius = 0.0;
             node.x_offset = x_off; node.z_offset = z_off;
-            node.x = x_off; node.y = 0.0; node.z = z_off;
-            node.node_radius = 0.05;     // fixed so it's visible
+            node.x = x_off; node.z = z_off;
+            node.node_radius = 0.01;
             const std::string& label = id_to_item[node.item];
             ParsedItem P = parse_interval_info(label);
             node.type = P.type;
@@ -343,13 +337,11 @@ namespace coral_plots {
                 node.step = 0;
                 node.item = rid;         // show the *individual* item label/color
                 node.leafcount = leaf_counts[root];
-                node.support_node = support_node[root];
-                node.lift_node = 0.0;    // or support_node[root] if you prefer
                 node.angle_start = 0.0; node.angle_end = 2 * PI; node.angle = 0.0;
                 node.radius = 0.0;
                 node.x_offset = x_off; node.z_offset = z_off;
-                node.x = x_off; node.y = 0.0; node.z = z_off;
-                node.node_radius = 0.05; // fixed center bubble
+                node.x = x_off; node.z = z_off;
+                node.node_radius = 0.01;
                 const std::string& label = id_to_item[node.item];
                 ParsedItem P = parse_interval_info(label);
                 node.type = P.type;
@@ -367,15 +359,11 @@ namespace coral_plots {
 
         // -- non-root nodes as before --
         for (const auto& [pfx, _] : metrics_by_path_id) {
-            constexpr double min_r = 0.005;
-            constexpr double max_r = 0.02;
             Node node;
             node.path_id = pfx;
             node.step = static_cast<unsigned>(pfx.size());
             node.item = pfx.back();
             node.leafcount = leaf_counts[pfx];
-            node.support_node = support_node[pfx];
-            node.lift_node = lift_node[pfx];
             node.angle_start = a_start[pfx];
             node.angle_end = a_end[pfx];
             node.angle = 0.5 * (node.angle_start + node.angle_end);
@@ -383,7 +371,6 @@ namespace coral_plots {
             node.x_offset = x_off; node.z_offset = z_off;
             node.x = node.x_offset + node.radius * std::cos(node.angle);
             node.z = node.z_offset + node.radius * std::sin(node.angle);
-            node.y = 0.0;
             const std::string& label = id_to_item[node.item];
             ParsedItem P = parse_interval_info(label);
             node.type = P.type;
@@ -395,13 +382,9 @@ namespace coral_plots {
             node.category_val = P.category_val;
             node.interval_label = P.interval_label;
             node.interval_label_short = P.interval_label_short;
+            node.node_radius = 0.01;
 
-            if (max_l > min_l)
-                node.node_radius = (node.lift_node - min_l) / (max_l - min_l) * (max_r - min_r) + min_r;
-            else
-                node.node_radius = 0.5 * (min_r + max_r);
-
-            coordinates[pfx] = { node.x, node.y, node.z };
+            coordinates[pfx] = { node.x, 0, node.z };
             all_nodes.push_back(std::move(node));
         }
         return coordinates;
@@ -425,8 +408,9 @@ namespace coral_plots {
             e.confidence = p.confidence;
             e.lift = p.lift;
 
-            std::tie(e.x_start, e.y_start, e.z_start) = coordinates[parent];
-            std::tie(e.x_end, e.y_end, e.z_end) = coordinates[child];
+            double y = 0;
+            std::tie(e.x_start, y, e.z_start) = coordinates[parent];
+            std::tie(e.x_end, y, e.z_end) = coordinates[child];
 
             all_edges.push_back(std::move(e));
         }

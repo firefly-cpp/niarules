@@ -11,30 +11,23 @@
 
 using namespace Rcpp;
 
-/// @brief Retrieves the integer ID for a given item string, adding it to the map and registry if not already present.
-///
-/// If the item exists in the lookup map, its ID is returned. Otherwise, a new ID is generated,
-/// the item is added to both the lookup map and registry vector, and the new ID is returned.
-///
-/// @param lookup A map from item strings to integer IDs.
-/// @param registry A vector maintaining the order and names of items (ID to string mapping).
-/// @param item The item string to look up or insert.
-/// @return The integer ID corresponding to the given item.
-static int get_item_id(std::unordered_map<std::string,int>& lookup,
-                       std::vector<std::string>& registry,
-                       const std::string& item) {
-  auto it = lookup.find(item);
-  if (it != lookup.end()) return it->second;
-  int id = static_cast<int>(registry.size());
-  lookup.emplace(item, id);
-  registry.push_back(item);
-  return id;
-}
+namespace {
+	inline std::string path_to_string(const std::vector<int>& path, char sep='|') {
+	  if (path.empty()) return {};
+	  std::string out;
+	  out.reserve(path.size() * 4); // rough prealloc
+	  for (size_t i = 0; i < path.size(); ++i) {
+		if (i) out.push_back(sep);
+		out += std::to_string(path[i]);
+	  }
+	  return out;
+	}
 
-static std::vector<int> to_std_vec(const IntegerVector& v) {
-  std::vector<int> out; out.reserve(v.size());
-  for (int x : v) out.push_back(x);
-  return out;
+	inline std::vector<int> to_std_vec(const IntegerVector& v) {
+	  std::vector<int> out; out.reserve(v.size());
+	  for (int x : v) out.push_back(x);
+	  return out;
+	}
 }
 
 //' @title Entry point for R to generate coral plot data from a set of association rules.
@@ -165,38 +158,40 @@ Rcpp::List build_layout_cpp(Rcpp::List parsed,
 
   int E = static_cast<int>(edges.size());
 
-  NumericVector x(E), y(E), z(E), x_end(E), y_end(E), z_end(E), support(E), lift(E), confidence(E);
+  NumericVector x(E), z(E), x_end(E), z_end(E), support(E), lift(E), confidence(E);
+  CharacterVector parent_path(E), child_path(E);
   for (int i=0;i<E;++i) {
     x[i]     = edges[i].x_start;
-    y[i]     = edges[i].y_start;
     z[i]     = edges[i].z_start;
     x_end[i] = edges[i].x_end;
-    y_end[i] = edges[i].y_end;
     z_end[i] = edges[i].z_end;
 	support[i] = edges[i].support;
 	lift[i] = edges[i].lift;
 	confidence[i] = edges[i].confidence;
+	parent_path[i] = path_to_string(edges[i].parent_path);
+	child_path[i]  = path_to_string(edges[i].child_path);
   }
   DataFrame edgesDF = DataFrame::create(
-    _["x"]=x, _["y"]=y, _["z"]=z,
-    _["x_end"]=x_end, _["y_end"]=y_end, _["z_end"]=z_end,
+    _["x"]=x, _["z"]=z,
+    _["x_end"]=x_end, _["z_end"]=z_end,
     _["support"]=support, _["lift"]=lift, _["confidence"]=confidence,
-    _["stringsAsFactors"]=false
+	_["parent_path"] = parent_path,
+	_["child_path"] = child_path
   );
 
   // ---- nodes: carry geometry + parsed metadata for labeling/coloring in R ----
   int NN = static_cast<int>(nodes.size());
-  NumericVector nx(NN), ny(NN), nz(NN), nrad(NN), x_off(NN), z_off(NN), lo(NN), hi(NN);
-  IntegerVector nid(NN), step(NN);
+  NumericVector nx(NN), nz(NN), nrad(NN), x_off(NN), z_off(NN), lo(NN), hi(NN);
+  IntegerVector step(NN);
   LogicalVector incl_lo(NN), incl_hi(NN);
-  CharacterVector item(NN), feature(NN), kind(NN), category_val(NN), lbl(NN), lbl_short(NN);
+  CharacterVector item(NN), feature(NN), kind(NN), category_val(NN), lbl(NN), lbl_short(NN), path(NN);
 
   for (int i=0;i<NN;++i) {
-    nx[i]   = nodes[i].x; ny[i]   = nodes[i].y; nz[i]   = nodes[i].z;
+    nx[i]   = nodes[i].x; nz[i]   = nodes[i].z;
     x_off[i]= nodes[i].x_offset; z_off[i]= nodes[i].z_offset;
     nrad[i] = nodes[i].node_radius;
-    nid[i]  = nodes[i].item; step[i] = nodes[i].step;
-
+    step[i] = nodes[i].step;
+	path[i] = path_to_string(nodes[i].path_id);
     item[i]       = id_to_item[nodes[i].item];
     feature[i]    = nodes[i].type;   // base feature name (already parsed)
     kind[i]       = nodes[i].kind;
@@ -210,10 +205,10 @@ Rcpp::List build_layout_cpp(Rcpp::List parsed,
   }
 
   DataFrame nodesDF = DataFrame::create(
-    _["x"]=nx, _["y"]=ny, _["z"]=nz,
+    _["x"]=nx, _["z"]=nz,
     _["x_offset"]=x_off, _["z_offset"]=z_off,
     _["radius"]=nrad,
-    _["id"]=nid, _["item"]=item,
+    _["item"]=item,
     _["step"]=step,
     _["feature"]=feature,
     _["kind"]=kind,
@@ -221,7 +216,8 @@ Rcpp::List build_layout_cpp(Rcpp::List parsed,
     _["incl_low"]=incl_lo, _["incl_high"]=incl_hi,
     _["category_val"]=category_val,
     _["interval_label"]=lbl,
-    _["interval_label_short"]=lbl_short
+    _["interval_label_short"]=lbl_short,
+	_["path"] = path
   );
 
   return List::create(

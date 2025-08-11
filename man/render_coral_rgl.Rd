@@ -24,10 +24,13 @@ render_coral_rgl(
   edge_alpha = 0.6,
   edge_alpha_range = c(0.25, 0.5),
   edge_alpha_transform = c("linear", "sqrt", "log"),
-  node_color_by = c("type", "item", "none"),
-  node_colors = NULL,
-  palette_hcl_c = 80,
-  palette_hcl_l = 50,
+  node_color_by = c("type", "item", "none", "edge_incoming", "edge_outgoing_mean"),
+  node_gradient = "match",
+  node_gradient_map = c("even", "hash", "frequency"),
+  y_scale = 0,
+  jitter_sd = 0,
+  jitter_mode = c("deterministic", "random"),
+  jitter_seed = NULL,
   return_data = FALSE
 )
 }
@@ -70,13 +73,19 @@ render_coral_rgl(
 
 \item{edge_alpha_transform}{"linear"|"sqrt"|"log"}
 
-\item{node_color_by}{"type" (base feature), "item" (full string), or "none"}
+\item{node_color_by}{TODO}
 
-\item{node_colors}{optional named overrides for node colors}
+\item{node_gradient}{TODO}
 
-\item{palette_hcl_c}{HCL palette params for auto node colors}
+\item{node_gradient_map}{TODO}
 
-\item{palette_hcl_l}{HCL palette params for auto node colors}
+\item{y_scale}{numeric scalar; vertical scale (0 = flat, default).}
+
+\item{jitter_sd}{TODO}
+
+\item{jitter_mode}{TODO}
+
+\item{jitter_seed}{TODO,}
 
 \item{return_data}{used for testing only}
 }

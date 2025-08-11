@@ -42,8 +42,6 @@ render_coral_rgl(
   edge_width_transform = "linear",
   edge_gradient = c("#2166AC","#67A9CF","#D1E5F0","#FDDBC7","#EF8A62","#B2182B"),
   edge_alpha   = 0.6,
-  node_color_by = "item",
-  node_colors   = c(lhs1="#9E3D3D", lhs2="#006D77", lhs3="#8A5FBF", lhs4="#6E8000"),
-  palette_hcl_c = 80,
-  palette_hcl_l = 50
+  node_color_by = "type",
+  node_gradient   = c(lhs1="#9E3D3D", lhs2="#006D77", lhs3="#8A5FBF", lhs4="#6E8000"),
 )

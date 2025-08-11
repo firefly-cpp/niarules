@@ -48,14 +48,14 @@ test_that("build_coral_plots returns nodes/edges with expected columns and grid_
 
   # nodes columns (geometry + metadata exposed by C++)
   expect_true(all(c(
-    "x","y","z","radius","id","item","step","feature","kind",
+    "x","z","radius","item","step","feature","kind",
     "interval_low","interval_high","incl_low","incl_high",
     "category_val","interval_label","interval_label_short",
     "x_offset","z_offset"
   ) %in% names(nodes)))
 
   # edges columns (geometry + styling)
-  expect_true(all(c("x","y","z","x_end","y_end","z_end","support","lift","confidence") %in% names(edges)))
+  expect_true(all(c("x","z","x_end","z_end","support","lift","confidence") %in% names(edges)))
 
   # grid_size should be ceil(sqrt(#unique combined RHS))
   # Here: "Y = y1", "Z = z1, W = w1", "Z = z2" => 3 unique -> grid_size = 2
@@ -86,8 +86,8 @@ test_that("changing lhs_sort_metric changes geometry (A vs B order flips)", {
   layout_supp <- build_coral_plots(parsed, lhs_sort_metric = "support")
 
   # we don't rely on internal IDs; just compare edge geometry wholesale.
-  e1 <- layout_conf$edges[, c("x","y","z","x_end","y_end","z_end")]
-  e2 <- layout_supp$edges[, c("x","y","z","x_end","y_end","z_end")]
+  e1 <- layout_conf$edges[, c("x","z","x_end","z_end")]
+  e2 <- layout_supp$edges[, c("x","z","x_end","z_end")]
 
   # round to reduce floating-point noise
   r1 <- as.matrix(round(e1, 6))

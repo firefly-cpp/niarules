@@ -48,13 +48,11 @@ layout  <- build_coral_plots(parsed, lhs_sort_metric = "confidence")
 
 render_coral_rgl(
   layout$nodes, layout$edges, layout$grid_size,
-  # styling choices (all in R now)
   edge_width_metric    = "confidence",
-  edge_width_range     = c(1.5, 6),
-  edge_width_transform = "sqrt",
+  edge_width_range     = c(1, 4),
+  edge_width_transform = "log",
   edge_gradient        = c("#2166AC","#67A9CF","#D1E5F0","#FDDBC7","#EF8A62","#B2182B"),
   node_color_by        = "type",
-  node_colors          = NULL,
-  palette_hcl_c        = 80,
-  palette_hcl_l        = 50
+  node_gradient        = c("#204060","#5B8BB5","#D7E6F2","#F5D0C6","#E57373","#991C1C"),
+  y_scale = 0.15, jitter_sd = 0.015, jitter_mode = "random", jitter_seed = 1000
 )
