@@ -37,10 +37,26 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// build_layout_cpp
+Rcpp::List build_layout_cpp(Rcpp::List parsed, int grid_size, std::string lhs_sort, std::string edge_metric, Rcpp::CharacterVector edge_gradient);
+RcppExport SEXP _niarules_build_layout_cpp(SEXP parsedSEXP, SEXP grid_sizeSEXP, SEXP lhs_sortSEXP, SEXP edge_metricSEXP, SEXP edge_gradientSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::List >::type parsed(parsedSEXP);
+    Rcpp::traits::input_parameter< int >::type grid_size(grid_sizeSEXP);
+    Rcpp::traits::input_parameter< std::string >::type lhs_sort(lhs_sortSEXP);
+    Rcpp::traits::input_parameter< std::string >::type edge_metric(edge_metricSEXP);
+    Rcpp::traits::input_parameter< Rcpp::CharacterVector >::type edge_gradient(edge_gradientSEXP);
+    rcpp_result_gen = Rcpp::wrap(build_layout_cpp(parsed, grid_size, lhs_sort, edge_metric, edge_gradient));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_niarules_parse_rules_cpp", (DL_FUNC) &_niarules_parse_rules_cpp, 1},
     {"_niarules_buildCoralPlots", (DL_FUNC) &_niarules_buildCoralPlots, 6},
+    {"_niarules_build_layout_cpp", (DL_FUNC) &_niarules_build_layout_cpp, 5},
     {NULL, NULL, 0}
 };
 

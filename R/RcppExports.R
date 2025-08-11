@@ -29,3 +29,8 @@ buildCoralPlots <- function(rulesDF, grid_size, edge_gradient = as.character( c(
     .Call(`_niarules_buildCoralPlots`, rulesDF, grid_size, edge_gradient, edge_metric, item_types, type_colors)
 }
 
+#' @export
+build_layout_cpp <- function(parsed, grid_size, lhs_sort = "confidence", edge_metric = "support", edge_gradient = as.character( c("#2c7bb6","#d7191c"))) {
+    .Call(`_niarules_build_layout_cpp`, parsed, grid_size, lhs_sort, edge_metric, edge_gradient)
+}
+

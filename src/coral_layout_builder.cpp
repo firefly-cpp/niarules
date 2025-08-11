@@ -39,14 +39,15 @@ namespace coral_plots {
         double max_radius,
         const std::vector<std::string> &id_to_item,
         std::vector<Node> &all_nodes,
-        std::vector<Edge> &all_edges
+        std::vector<Edge> &all_edges,
+		int metric_to_use
     ) {
         auto rules_by_id = groupRulesById(rules);
         const auto rules_by_single_metrics = groupRulesBySingleMetrics(rules);
         const auto rules_by_consequent = groupRulesByConsequent(rules);
         const auto str2id = make_str2id(id_to_item);
 
-        auto paths_by_consequent = groupPathsByConsequent(rules_by_id, rules_by_consequent, id_to_item, rules_by_single_metrics);
+        auto paths_by_consequent = groupPathsByConsequent(rules_by_id, rules_by_consequent, id_to_item, rules_by_single_metrics, metric_to_use);
         all_nodes.clear();
         all_edges.clear();
         unsigned plot_id = 0;
@@ -165,7 +166,8 @@ namespace coral_plots {
         std::unordered_map<int, Rule> &rules_by_id,
         const std::unordered_map<int, std::vector<int> > &rules_by_consequent,
         const std::vector<std::string> &id_to_item,
-        const std::unordered_map<int, std::vector<SingleMetric> > &single_metrics
+        const std::unordered_map<int, std::vector<SingleMetric> > &single_metrics,
+		int metric_to_use // NEW
     ) {
         std::unordered_map<int, std::vector<Path> > paths_per_consequent;
 
@@ -177,7 +179,7 @@ namespace coral_plots {
                 RuleMetric metric{rule.confidence, rule.lift, rule.support};
 
                 // sort the lhs depending on metric (here -> confidence)
-                auto sorted_lhs = sortByMetric(rhs, rule.antecedent, id_to_item, single_metrics, 0);
+                auto sorted_lhs = sortByMetric(rhs, rule.antecedent, id_to_item, single_metrics, metric_to_use);
 
                 RulePath prefix;
                 prefix.reserve(1 + sorted_lhs.size());

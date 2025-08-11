@@ -1,9 +1,73 @@
 #include <Rcpp.h>
+#include <unordered_map>
+#include <string>
+#include <vector>
+#include <tuple>
+#include <limits>
+#include <cmath>
 
 using namespace Rcpp;
 
 #include "coral_plots.h"
+#include "coral_layout_builder.h"
 #include "string_splitter.h"
+
+static int get_item_id(std::unordered_map<std::string,int>& m,
+                       std::vector<std::string>& id2item,
+                       const std::string& s) {
+  auto it = m.find(s);
+  if (it != m.end()) return it->second;
+  int id = static_cast<int>(id2item.size());
+  m.emplace(s, id);
+  id2item.push_back(s);
+  return id;
+}
+
+static std::vector<int> to_std_vec(const IntegerVector& v) {
+  std::vector<int> out; out.reserve(v.size());
+  for (int x : v) out.push_back(x);
+  return out;
+}
+
+// small color helpers (same behavior as existing buildCoralPlots)
+static std::tuple<int,int,int> hexToRGB(const std::string& hex) {
+  int r=0,g=0,b=0;
+  if (hex.size()==7 && hex[0]=='#') {
+    r = std::stoi(hex.substr(1,2), nullptr, 16);
+    g = std::stoi(hex.substr(3,2), nullptr, 16);
+    b = std::stoi(hex.substr(5,2), nullptr, 16);
+  } else if (hex.size()==9 && hex[0]=='#') {
+    r = std::stoi(hex.substr(3,2), nullptr, 16);
+    g = std::stoi(hex.substr(5,2), nullptr, 16);
+    b = std::stoi(hex.substr(7,2), nullptr, 16);
+  }
+  return {r,g,b};
+}
+
+static std::string rgbToHex(int r,int g,int b) {
+  char buf[8]; std::snprintf(buf, sizeof(buf), "#%02X%02X%02X", r,g,b);
+  return std::string(buf);
+}
+
+static inline double clamp01(double t){ return t<0?0.0:(t>1?1.0:t); }
+static inline double lerp(double a,double b,double t){ return a + (b-a)*t; }
+static std::string samplePalette(double t, const std::vector<std::tuple<int,int,int>>& pal) {
+  if (pal.empty()) return "#000000";
+  if (pal.size()==1) {
+    auto [r,g,b]=pal.front(); return rgbToHex(r,g,b);
+  }
+  t = clamp01(t);
+  const double pos = t * (pal.size()-1);
+  size_t i = static_cast<size_t>(std::floor(pos));
+  size_t j = std::min(i+1, pal.size()-1);
+  double f = pos - i;
+  auto [r1,g1,b1] = pal[i];
+  auto [r2,g2,b2] = pal[j];
+  int r = static_cast<int>(std::round(lerp(r1,r2,f)));
+  int g = static_cast<int>(std::round(lerp(g1,g2,f)));
+  int b = static_cast<int>(std::round(lerp(b1,b2,f)));
+  return rgbToHex(r,g,b);
+}
 
 static std::string feature_from_label_top_level_first(std::string s) {
     // take only the FIRST top-level token (outside (), [], {})
@@ -32,7 +96,7 @@ static std::string feature_from_label_top_level_first(std::string s) {
 /// @param registry A vector maintaining the order and names of items (ID to string mapping).
 /// @param item The item string to look up or insert.
 /// @return The integer ID corresponding to the given item.
-static int get_item_id(
+static int get_item_id_old(
     std::unordered_map<std::string, int> &lookup,
     std::vector<std::string> &registry,
     std::string const &item
@@ -103,11 +167,11 @@ static std::vector<coral_plots::Rule> df_to_rules(
         std::string rhs_str = (rhs_chr[i] == NA_STRING) ? std::string()
             : Rcpp::as<std::string>(rhs_chr[i]);
         rhs_str = trim_copy(strip_outer_braces(rhs_str));
-        const int rhs_id = get_item_id(item_to_id, id_to_item, rhs_str);
+        const int rhs_id = get_item_id_old(item_to_id, id_to_item, rhs_str);
 
         // register individual RHS items (for stacked step-0 roots)
         for (const auto& sub : split_outside_brackets(rhs_str)) {
-            (void)get_item_id(item_to_id, id_to_item, trim_copy(sub));
+            (void)get_item_id_old(item_to_id, id_to_item, trim_copy(sub));
         }
 
         // LHS mapping: enforce atomic tokens per cell
@@ -130,10 +194,10 @@ static std::vector<coral_plots::Rule> df_to_rules(
                     lhs_indexed[j].second.c_str(), i + 1, cell.c_str());
             }
             std::string token = trim_copy(parts[0]);
-            /*int lhs_id = get_item_id(item_to_id, id_to_item, token);
+            /*int lhs_id = get_item_id_old(item_to_id, id_to_item, token);
             ant.push_back(lhs_id);*/
 
-            int lhs_id = get_item_id(item_to_id, id_to_item, token);
+            int lhs_id = get_item_id_old(item_to_id, id_to_item, token);
 
             // sanity: the id maps back to the same token
             const std::string& roundtrip = id_to_item[lhs_id];
@@ -399,4 +463,170 @@ List buildCoralPlots(const DataFrame& rulesDF, int grid_size,
         _["edge_metric"] = edge_metric,
         _["edge_range"] = NumericVector::create(minV, maxV)
     );
+}
+
+//' @export
+// [[Rcpp::export]]
+Rcpp::List build_layout_cpp(Rcpp::List parsed,
+                            int grid_size,
+                            std::string lhs_sort = "confidence",
+                            std::string edge_metric = "support",
+                            Rcpp::CharacterVector edge_gradient = Rcpp::CharacterVector::create("#2c7bb6","#d7191c")) {
+  // ---- unpack parsed ----
+  //DataFrame items = parsed["items"];
+  //DataFrame rules = parsed["rules"];
+  Rcpp::DataFrame items = Rcpp::as<Rcpp::DataFrame>(parsed["items"]);
+  Rcpp::DataFrame rules = Rcpp::as<Rcpp::DataFrame>(parsed["rules"]);
+
+
+  IntegerVector item_id = items["item_id"];
+  CharacterVector item_label = items["label"];
+
+  const int M = items.nrow();
+
+  // id_to_item seeded with the existing atomic items (0-based!)
+  std::vector<std::string> id_to_item(M);
+  for (int i=0;i<M;++i) id_to_item[i] = as<std::string>(item_label[i]);
+  std::unordered_map<std::string,int> item_to_id;
+  for (int i=0;i<M;++i) item_to_id[id_to_item[i]] = i;
+
+  // rules columns
+  IntegerVector rule_id      = rules["rule_id"];
+  NumericVector support_col  = rules["support"];
+  NumericVector conf_col     = rules["confidence"];
+  NumericVector lift_col     = rules["lift"];
+  List         lhs_ids_list  = rules["lhs_item_ids"];
+  List         rhs_ids_list  = rules["rhs_item_ids"];
+
+  const int N = rules.nrow();
+  std::vector<coral_plots::Rule> cpp_rules;
+  cpp_rules.reserve(N);
+
+  // build composite RHS labels so multiple RHS items share a single "root" id
+  for (int i=0;i<N;++i) {
+    // LHS
+    std::vector<int> lhs_vec;
+    if (lhs_ids_list[i] != R_NilValue) {
+      lhs_vec = to_std_vec(IntegerVector(lhs_ids_list[i]));
+    }
+
+    // RHS composite label
+    std::string rhs_label;
+    if (rhs_ids_list[i] != R_NilValue) {
+      auto rhs_vec = to_std_vec(IntegerVector(rhs_ids_list[i]));
+      for (size_t k=0;k<rhs_vec.size();++k) {
+        if (k) rhs_label += ", ";
+        int id = rhs_vec[k];
+        if (id < 0 || id >= M) stop("build_layout_cpp: rhs item_id out of range.");
+        rhs_label += id_to_item[id];
+      }
+    }
+
+    int rhs_id = get_item_id(item_to_id, id_to_item, rhs_label);
+    coral_plots::Rule r;
+    r.rule_id    = rule_id[i];
+    r.consequent = rhs_id;
+    r.antecedent = std::move(lhs_vec);
+    r.support    = support_col[i];
+    r.confidence = conf_col[i];
+    r.lift       = lift_col[i];
+    cpp_rules.push_back(std::move(r));
+  }
+
+  // ---- metric selector for LHS sorting ----
+  int metric_to_use = 0; // 0=confidence, 1=support, 2=lift
+  if (lhs_sort == "support") metric_to_use = 1;
+  else if (lhs_sort == "lift") metric_to_use = 2;
+
+  // ---- run layout ----
+  std::vector<coral_plots::Edge> edges;
+  std::vector<coral_plots::Node> nodes;
+
+  // New overload (see header/cpp tweak below) that takes metric_to_use
+  coral_plots::CoralLayoutBuilder::build(
+    cpp_rules, grid_size, 0.5, id_to_item, nodes, edges, metric_to_use
+  );
+
+  // ---- edges: width + color via edge_metric + gradient ----
+  std::function<double(const coral_plots::Edge&)> getMetric;
+  if (edge_metric == "confidence")      getMetric = [](const coral_plots::Edge& e){return e.confidence;};
+  else if (edge_metric == "lift")       getMetric = [](const coral_plots::Edge& e){return e.lift;};
+  else { edge_metric = "support";       getMetric = [](const coral_plots::Edge& e){return e.support;}; }
+
+  int E = static_cast<int>(edges.size());
+  double minV = std::numeric_limits<double>::infinity();
+  double maxV = -std::numeric_limits<double>::infinity();
+  for (const auto& e : edges) { double v = getMetric(e); if (v < minV) minV = v; if (v > maxV) maxV = v; }
+  bool constant = !(maxV > minV);
+
+  std::vector<std::tuple<int,int,int>> pal; pal.reserve(edge_gradient.size());
+  for (auto& s : edge_gradient) pal.push_back(hexToRGB(as<std::string>(s)));
+
+  NumericVector x(E), y(E), z(E), x_end(E), y_end(E), z_end(E), width(E);
+  CharacterVector color(E);
+  for (int i=0;i<E;++i) {
+    x[i]     = edges[i].x_start;
+    y[i]     = edges[i].y_start;
+    z[i]     = edges[i].z_start;
+    x_end[i] = edges[i].x_end;
+    y_end[i] = edges[i].y_end;
+    z_end[i] = edges[i].z_end;
+    width[i] = edges[i].line_width;
+
+    double t = constant ? 0.5 : (getMetric(edges[i]) - minV) / (maxV - minV);
+    color[i] = samplePalette(t, pal);
+  }
+  DataFrame edgesDF = DataFrame::create(
+    _["x"]=x, _["y"]=y, _["z"]=z,
+    _["x_end"]=x_end, _["y_end"]=y_end, _["z_end"]=z_end,
+    _["width"]=width, _["color"]=color,
+    _["stringsAsFactors"]=false
+  );
+
+  // ---- nodes: carry geometry + parsed metadata for labeling/coloring in R ----
+  int NN = static_cast<int>(nodes.size());
+  NumericVector nx(NN), ny(NN), nz(NN), nrad(NN), x_off(NN), z_off(NN), lo(NN), hi(NN);
+  IntegerVector nid(NN), step(NN);
+  LogicalVector incl_lo(NN), incl_hi(NN);
+  CharacterVector item(NN), feature(NN), kind(NN), category_val(NN), lbl(NN), lbl_short(NN);
+
+  for (int i=0;i<NN;++i) {
+    nx[i]   = nodes[i].x; ny[i]   = nodes[i].y; nz[i]   = nodes[i].z;
+    x_off[i]= nodes[i].x_offset; z_off[i]= nodes[i].z_offset;
+    nrad[i] = nodes[i].node_radius;
+    nid[i]  = nodes[i].item; step[i] = nodes[i].step;
+
+    item[i]       = id_to_item[nodes[i].item];
+    feature[i]    = nodes[i].type;   // base feature name (already parsed)
+    kind[i]       = nodes[i].kind;
+    lo[i]         = nodes[i].interval_low;
+    hi[i]         = nodes[i].interval_high;
+    incl_lo[i]    = nodes[i].incl_low;
+    incl_hi[i]    = nodes[i].incl_high;
+    category_val[i] = nodes[i].category_val;
+    lbl[i]        = nodes[i].interval_label;
+    lbl_short[i]  = nodes[i].interval_label_short;
+  }
+
+  DataFrame nodesDF = DataFrame::create(
+    _["x"]=nx, _["y"]=ny, _["z"]=nz,
+    _["x_offset"]=x_off, _["z_offset"]=z_off,
+    _["radius"]=nrad,
+    _["id"]=nid, _["item"]=item,
+    _["step"]=step,
+    _["feature"]=feature,
+    _["kind"]=kind,
+    _["interval_low"]=lo, _["interval_high"]=hi,
+    _["incl_low"]=incl_lo, _["incl_high"]=incl_hi,
+    _["category_val"]=category_val,
+    _["interval_label"]=lbl,
+    _["interval_label_short"]=lbl_short
+  );
+
+  return List::create(
+    _["edges"]       = edgesDF,
+    _["nodes"]       = nodesDF,
+    _["edge_metric"] = edge_metric,
+    _["edge_range"]  = NumericVector::create(minV, maxV)
+  );
 }
