@@ -10,14 +10,14 @@ read_rules_csv_for_parse <- function(path) {
     stop("CSV is missing columns: ", paste(miss, collapse = ", "))
   }
   
-  # Split "{...} => {...}" into LHS/RHS, trim both sides
+  # split "{...} => {...}" into LHS/RHS, trim both sides
   rs <- as.character(raw$rules)
   parts <- strsplit(rs, "=>", fixed = TRUE)
   
   lhs <- vapply(parts, function(x) trimws(if (length(x) >= 1) x[1] else ""), character(1))
   rhs <- vapply(parts, function(x) trimws(if (length(x) >= 2) x[2] else ""), character(1))
   
-  # Vectorized "strip one layer of outer { }" (if present)
+  # vectorized "strip one layer of outer { }" (if present)
   strip_braces_one <- function(x) {
     s <- trimws(as.character(x))
     n <- nchar(s)
@@ -41,17 +41,20 @@ read_rules_csv_for_parse <- function(path) {
 rules_path <- system.file("extdata", "abalone_rules.csv", package = "niarules", mustWork = TRUE)
 df <- read_rules_csv_for_parse(rules_path)
 parsed  <- parse_rules(df)
+#parsed
+
 layout  <- build_coral_plots(parsed, lhs_sort_metric = "confidence")
+#layout
 
 render_coral_rgl(
   layout$nodes, layout$edges, layout$grid_size,
   # styling choices (all in R now)
-  edge_metric          = "confidence",                  # or "support"/"lift"
+  edge_width_metric    = "confidence",
   edge_width_range     = c(1.5, 6),
   edge_width_transform = "sqrt",
   edge_gradient        = c("#2166AC","#67A9CF","#D1E5F0","#FDDBC7","#EF8A62","#B2182B"),
-  node_color_by        = "type",                        # or "item"/"none"
-  node_colors          = NULL,                          # named overrides if you want
+  node_color_by        = "type",
+  node_colors          = NULL,
   palette_hcl_c        = 80,
   palette_hcl_l        = 50
 )

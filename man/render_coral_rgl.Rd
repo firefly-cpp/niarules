@@ -14,11 +14,16 @@ render_coral_rgl(
   label_cex = 0.7,
   label_offset = 1.5,
   max_labels = 100,
-  edge_metric = c("confidence", "lift", "support"),
+  edge_width_metric = c("confidence", "lift", "support"),
+  edge_color_metric = c("confidence", "lift", "support"),
+  edge_alpha_metric = NULL,
   edge_width_range = c(1, 5),
   edge_width_transform = c("linear", "sqrt", "log"),
   edge_gradient = c("#2166AC", "#67A9CF", "#D1E5F0", "#FDDBC7", "#EF8A62", "#B2182B"),
+  edge_color_transform = c("linear", "sqrt", "log"),
   edge_alpha = 0.6,
+  edge_alpha_range = c(0.25, 0.5),
+  edge_alpha_transform = c("linear", "sqrt", "log"),
   node_color_by = c("type", "item", "none"),
   node_colors = NULL,
   palette_hcl_c = 80,
@@ -45,7 +50,11 @@ render_coral_rgl(
 
 \item{max_labels}{max non-root labels to be shown}
 
-\item{edge_metric}{which metric to map to edge width/color}
+\item{edge_width_metric}{which metric to map to edge width}
+
+\item{edge_color_metric}{which metric to map to edge width}
+
+\item{edge_alpha_metric}{which metric to map to edge width}
 
 \item{edge_width_range}{numeric length-2, min/max lwd}
 
@@ -53,7 +62,13 @@ render_coral_rgl(
 
 \item{edge_gradient}{character vector (>=2) for edge colors}
 
+\item{edge_color_transform}{"linear"|"sqrt"|"log"}
+
 \item{edge_alpha}{edge transparency (0..1)}
+
+\item{edge_alpha_range}{TODO}
+
+\item{edge_alpha_transform}{"linear"|"sqrt"|"log"}
 
 \item{node_color_by}{"type" (base feature), "item" (full string), or "none"}
 

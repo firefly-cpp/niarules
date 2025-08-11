@@ -24,10 +24,10 @@ df <- data.frame(
 )
 
 parsed = parse_rules(df)
-parsed
+#parsed
 
 layout = build_coral_plots(parsed)
-layout
+#layout
 
 render_coral_rgl(
   layout$nodes, layout$edges, layout$grid_size,
@@ -37,7 +37,7 @@ render_coral_rgl(
   label_cex    = 0.7,
   label_offset = 1.5,
   max_labels   = 100,
-  edge_metric  = "lift",
+  edge_width_metric  = "lift",
   edge_width_range = c(1, 5),
   edge_width_transform = "linear",
   edge_gradient = c("#2166AC","#67A9CF","#D1E5F0","#FDDBC7","#EF8A62","#B2182B"),

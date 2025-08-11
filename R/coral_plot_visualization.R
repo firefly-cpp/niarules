@@ -13,11 +13,16 @@
 #' @param label_cex label size
 #' @param label_offset vertical offset in radii
 #' @param max_labels max non-root labels to be shown
-#' @param edge_metric which metric to map to edge width/color
+#' @param edge_width_metric which metric to map to edge width
+#' @param edge_color_metric which metric to map to edge width
+#' @param edge_alpha_metric which metric to map to edge width
 #' @param edge_width_range numeric length-2, min/max lwd
 #' @param edge_width_transform "linear"|"sqrt"|"log"
 #' @param edge_gradient character vector (>=2) for edge colors
+#' @param edge_color_transform "linear"|"sqrt"|"log"
 #' @param edge_alpha edge transparency (0..1)
+#' @param edge_alpha_range TODO
+#' @param edge_alpha_transform "linear"|"sqrt"|"log"
 #' @param node_color_by "type" (base feature), "item" (full string), or "none"
 #' @param node_colors optional named overrides for node colors
 #' @param palette_hcl_c HCL palette params for auto node colors
@@ -34,49 +39,79 @@ render_coral_rgl <- function(
     label_cex    = 0.7,
     label_offset = 1.5,
     max_labels   = 100,
-    edge_metric  = c("confidence","lift","support"),
-    edge_width_range = c(1, 5),
-    edge_width_transform = c("linear","sqrt","log"),
-    edge_gradient = c("#2166AC","#67A9CF","#D1E5F0","#FDDBC7","#EF8A62","#B2182B"),
-    edge_alpha   = 0.6,
+    
+    edge_width_metric   = c("confidence","lift","support"),
+    edge_color_metric   = c("confidence","lift","support"),
+    edge_alpha_metric   = NULL,  # e.g. "support" | "lift" | "confidence" | NULL
+    
+    # width controls
+    edge_width_range    = c(1, 5),
+    edge_width_transform= c("linear","sqrt","log"),
+    
+    # color controls
+    edge_gradient       = c("#2166AC","#67A9CF","#D1E5F0","#FDDBC7","#EF8A62","#B2182B"),
+    edge_color_transform= c("linear","sqrt","log"),
+    
+    # alpha controls
+    edge_alpha          = 0.6,
+    edge_alpha_range    = c(0.25, 0.5),
+    edge_alpha_transform= c("linear","sqrt","log"),
+    
     node_color_by = c("type","item","none"),
     node_colors   = NULL,
     palette_hcl_c = 80,
     palette_hcl_l = 50,
     return_data = FALSE
 ) {
-  stopifnot(is.data.frame(nodes), is.data.frame(edges))
-  label_mode          <- match.arg(label_mode)
-  node_color_by       <- match.arg(node_color_by)
-  edge_metric         <- match.arg(edge_metric)
-  edge_width_transform<- match.arg(edge_width_transform)
+  label_mode           <- match.arg(label_mode)
+  node_color_by        <- match.arg(node_color_by)
+  edge_width_metric    <- match.arg(edge_width_metric)
+  edge_color_metric    <- match.arg(edge_color_metric)
+  edge_width_transform <- match.arg(edge_width_transform)
+  edge_color_transform <- match.arg(edge_color_transform)
+  if (!is.null(edge_alpha_metric)) edge_alpha_transform <- match.arg(edge_alpha_transform)
   
-#### edge styling: width + color from chosen metric
-  # TODO: different metrics for width and color
+#### edge styling
   
-  if (!edge_metric %in% names(edges)) {
-    stop(sprintf("edges is missing '%s' column; build_coral_layout must return it.", edge_metric))
+  .norm_metric <- function(x, transform = c("linear","sqrt","log")) {
+    x <- as.numeric(x)
+    r <- range(x, finite = TRUE)
+    if (!is.finite(r[1]) || !(r[2] > r[1])) {
+      t <- rep(0.5, length(x))
+    } else {
+      t <- (x - r[1]) / (r[2] - r[1])
+    }
+    transform <- match.arg(transform)
+    if (transform == "sqrt") t <- sqrt(pmax(0, t))
+    if (transform == "log")  t <- log1p(pmax(0, t) * 9) / log(10)  # 0..1
+    t[!is.finite(t)] <- 0.5
+    t
   }
-  m <- as.numeric(edges[[edge_metric]])
-  rng <- range(m, finite = TRUE)
-  if (!is.finite(rng[1]) || !(rng[2] > rng[1])) {
-    t <- rep(0.5, length(m))
-  } else {
-    t <- (m - rng[1]) / (rng[2] - rng[1])
-  }
-  # optional transforms to spread dynamic range
-  if (edge_width_transform == "sqrt") t <- sqrt(t)
-  if (edge_width_transform == "log")  t <- log1p(t * 9) / log(10)  # 0..1
-  t[!is.finite(t)] <- 0.5
   
-  # widths
-  edges$width <- edge_width_range[1] + t * (edge_width_range[2] - edge_width_range[1])
+  # ---- edge styling: independent width/color/alpha mappings ----
+  miss_cols <- setdiff(c(edge_width_metric, edge_color_metric, edge_alpha_metric), names(edges))
+  if (length(miss_cols)) stop("edges missing required metric columns: ", paste(miss_cols, collapse = ", "))
   
-  # colors via gradient
+  # width
+  tw <- .norm_metric(edges[[edge_width_metric]], edge_width_transform)
+  edges$width <- edge_width_range[1] + tw * (edge_width_range[2] - edge_width_range[1])
+  
+  # color (hue) from a (possibly different) metric
+  tc <- .norm_metric(edges[[edge_color_metric]], edge_color_transform)
   if (length(edge_gradient) < 2L) edge_gradient <- c("#2166AC","#B2182B")
   cr  <- grDevices::colorRamp(edge_gradient)
-  rgb <- cr(t) # 0..255
-  edges$color <- grDevices::rgb(rgb[,1], rgb[,2], rgb[,3], alpha = edge_alpha, maxColorValue = 255)
+  rgb <- cr(tc)  # 0..255 per channel
+  
+  # alpha: constant or mapped from a third metric
+  if (is.null(edge_alpha_metric)) {
+    a <- rep(edge_alpha, length(tc))
+  } else {
+    ta <- .norm_metric(edges[[edge_alpha_metric]], edge_alpha_transform)
+    a  <- edge_alpha_range[1] + ta * (edge_alpha_range[2] - edge_alpha_range[1])
+  }
+  a <- pmin(pmax(a, 0), 1)
+  
+  edges$color <- grDevices::rgb(rgb[,1], rgb[,2], rgb[,3], alpha = a, maxColorValue = 255)
   
 #### node colors
   #### node colors
@@ -225,7 +260,7 @@ render_coral_rgl <- function(
     }
   }
   
-  if (return_data) return(invisible(list(nodes = nodes, edges = edges, edge_metric = edge_metric)))
+  if (return_data) return(invisible(list(nodes = nodes, edges = edges)))
   invisible(NULL)
 }
 
