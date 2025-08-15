@@ -2,44 +2,174 @@
 % Please edit documentation in R/coral_plot_visualization.R
 \name{render_coral_rgl}
 \alias{render_coral_rgl}
-\title{Render a Coral Plot in 3D Using rgl}
+\title{Apply styling to coral plots and render them with rgl}
 \usage{
 render_coral_rgl(
   nodes,
   edges,
   grid_size,
-  feature_cols = NULL,
   grid_color = "grey80",
-  legend = FALSE
+  legend = FALSE,
+  label_mode = c("none", "interval", "item", "interval_short"),
+  label_cex = 0.7,
+  label_offset = 1.5,
+  max_labels = 100,
+  edge_width_metric = c("confidence", "lift", "support"),
+  edge_color_metric = c("confidence", "lift", "support"),
+  edge_alpha_metric = NULL,
+  edge_width_range = c(1, 5),
+  edge_width_transform = c("linear", "sqrt", "log"),
+  edge_gradient = c("#2166AC", "#67A9CF", "#D1E5F0", "#FDDBC7", "#EF8A62", "#B2182B"),
+  edge_color_transform = c("linear", "sqrt", "log"),
+  edge_alpha = 0.5,
+  edge_alpha_range = c(0.25, 0.5),
+  edge_alpha_transform = c("linear", "sqrt", "log"),
+  node_color_by = c("type", "item", "none", "edge_incoming", "edge_outgoing_mean"),
+  node_gradient = "match",
+  node_gradient_map = c("even", "hash", "frequency"),
+  y_scale = 0,
+  jitter_sd = 0,
+  jitter_mode = c("deterministic", "random"),
+  jitter_seed = NULL,
+  return_data = FALSE
 )
 }
 \arguments{
-\item{nodes}{A data frame containing node positions and properties. Must include columns:
-\code{x}, \code{y}, \code{z}, \code{radius}, and \code{item}.}
+\item{nodes}{data.frame; typically `build_coral_layout()$nodes`. Must contain
+`x`, `z`, `x_offset`, `z_offset`, `radius`, `path`. Optional: `item`,
+`feature`, `step`, `interval_label`, `interval_label_short`.}
 
-\item{edges}{A data frame containing edge positions and styles. Must include columns:
-\code{x}, \code{y}, \code{z}, \code{x_end}, \code{y_end}, \code{z_end}, and optionally
-\code{color} and \code{width}.}
+\item{edges}{data.frame; typically `build_coral_layout()$edges`. Must contain
+`x`, `y`, `z`, `x_end`, `y_end`, `z_end`, `parent_path`, `child_path`,
+and metric columns `support`, `confidence`, `lift`.}
 
-\item{grid_size}{Integer indicating the number of grid cells in each dimension of the layout.
-This determines the size and scale of the background grid.}
+\item{grid_size}{integer; the layout grid size (usually `build_coral_layout()$grid_size`).}
 
-\item{feature_cols}{Optional named vector mapping node item names to colors. If provided, it is
-used to color the nodes accordingly. Defaults to \code{NULL} (black nodes).}
+\item{grid_color}{background grid color. Any R color spec. Default `"grey80"`.}
 
-\item{grid_color}{Color of the background grid lines. Defaults to \code{"grey80"}.}
+\item{legend}{logical; draw a node legend keyed by base feature (`nodes$feature`).
+Requires that `nodes$feature` and node colors are available. Default `FALSE`.}
 
-\item{legend}{Logical indicating whether to display a legend. Currently not implemented. Defaults to \code{FALSE}.}
+\item{label_mode}{one of `"none"`, `"interval"`, `"item"`, `"interval_short"`.
+Controls label text: interval labels, item labels, or no labels.}
+
+\item{label_cex}{numeric; label size passed to `rgl::text3d()`. Default `0.7`.}
+
+\item{label_offset}{numeric; vertical offset (in **node radii**) applied
+to labels (positive values move labels downward from sphere tops). Default `1.5`.}
+
+\item{max_labels}{integer; maximum number of **non-root** labels to keep (largest radii first).
+Root nodes are always kept. Default `100`.}
+
+\item{edge_width_metric}{character; which metric to map to edge **width**.
+One of `"confidence"`, `"lift"`, `"support"`. Default `"confidence"`.}
+
+\item{edge_color_metric}{character; which metric to map to edge **color**.
+One of `"confidence"`, `"lift"`, `"support"`. Default `"confidence"`.}
+
+\item{edge_alpha_metric}{character or `NULL`; which metric to map to edge **alpha**
+(transparency). One of `"support"`, `"lift"`, `"confidence"`, or `NULL` to use the
+constant `edge_alpha`. Default `NULL`.}
+
+\item{edge_width_range}{numeric length-2; min/max line width for edges after scaling.
+Default `c(1, 5)`.}
+
+\item{edge_width_transform}{character; transformation for width scaling from normalized
+metric in `[0,1]`. One of `"linear"`, `"sqrt"`, `"log"`. Default `"linear"`.}
+
+\item{edge_gradient}{character vector (>= 2); color ramp for edges, passed to
+`grDevices::colorRamp()`. Default
+`c("#2166AC","#67A9CF","#D1E5F0","#FDDBC7","#EF8A62","#B2182B")`.}
+
+\item{edge_color_transform}{character; transformation for color scaling from normalized
+metric in `[0,1]`. One of `"linear"`, `"sqrt"`, `"log"`. Default `"linear"`.}
+
+\item{edge_alpha}{numeric in `[0,1]`; constant alpha used **only when**
+`edge_alpha_metric` is `NULL`. Default `0.6`.}
+
+\item{edge_alpha_range}{numeric length-2 in `[0,1]`; min/max alpha used **only when**
+`edge_alpha_metric` is not `NULL`. Default `c(0.25, 0.5)`.}
+
+\item{edge_alpha_transform}{character; transformation for alpha scaling from normalized
+metric in `[0,1]`. One of `"linear"`, `"sqrt"`, `"log"`. Default `"linear"`.}
+
+\item{node_color_by}{one of `"type"`, `"item"`, `"none"`, `"edge_incoming"`, `"edge_outgoing_mean"`.
+Controls node coloring:
+- `"type"` colors by `nodes$feature` (recommended).
+- `"item"` colors by `nodes$item`.
+- `"none"` leaves default colors.
+- `"edge_incoming"` / `"edge_outgoing_mean"` are reserved for future use.
+**Note:** current implementation applies custom colors only for `"type"` and `"item"`.
+Default `"type"`.}
+
+\item{node_gradient}{either the string `"match"` to reuse `edge_gradient` for nodes,
+or a character vector (>= 2) of colors to build the node palette. Default `"match"`.}
+
+\item{node_gradient_map}{one of `"even"`, `"hash"`, `"frequency"`; how unique labels are
+placed along the gradient:
+- `"even"`: evenly spaced by sorted unique label order,
+- `"hash"`: stable per-label positions via a lightweight hash (good for reproducibility),
+- `"frequency"`: labels ordered by frequency (most frequent near one end).
+Default `"even"`.}
+
+\item{y_scale}{numeric scalar; vertical scale factor applied to each node’s normalized
+radial distance from its local center (`x_offset`,`z_offset`). `0` keeps the
+plot flat; try `0.5`–`0.8` for gentle relief. Default `0`.}
+
+\item{jitter_sd}{numeric; standard deviation of vertical jitter added to nodes,
+multiplied by the normalized radius so jitter fades toward the center. Default `0`.}
+
+\item{jitter_mode}{one of `"deterministic"` or `"random"`. Deterministic jitter
+derives noise from `nodes$path` (requires that column); random jitter uses `rnorm()`.
+Default `"deterministic"`.}
+
+\item{jitter_seed}{integer or `NULL`; RNG seed for reproducible **random** jitter.
+Ignored for `"deterministic"` mode. Default `NULL`.}
+
+\item{return_data}{logical; if `TRUE`, returns a list with augmented `nodes` and `edges`
+(including computed `color`, `width`, `y`, etc.) instead of just drawing. The plot is
+still created. Default `FALSE`.}
+}
+\value{
+Invisibly returns `NULL` after drawing. If `return_data = TRUE`, returns (invisibly)
+a list with components:
+- `nodes`: input `nodes` with added columns `y`, `color` (and possibly stacked
+  draw positions for roots),
+- `edges`: input `edges` with added columns `width`, `color`, `t_color_norm`,
+  `y`, `y_end`, and `width_binned`.
 }
 \description{
-Renders a coral network layout in an interactive 3D plot using the \pkg{rgl} package.
-This includes a customizable grid, edges between nodes (with optional styling), and nodes
-themselves (with optional color coding based on features).
+Renders a 3D "coral" plot produced by `build_coral_layout()`, with
+edge width/color/alpha mapped from association rule metrics and node
+colors derived from item/type groupings. The function draws a floor grid,
+edges as 3D segments, nodes as spheres, and optional labels/legend.
+
+**Required columns**
+- `edges`: `x`, `y`, `z`, `x_end`, `y_end`, `z_end`,
+  `parent_path`, `child_path`, and metric columns `support`, `confidence`, `lift`.
+- `nodes`: `x`, `z`, `x_offset`, `z_offset`, `radius`, `path`.
+
+**Optional columns**
+- `nodes$item`, `nodes$feature` (for labels/legend & color-by),
+  `nodes$step` (roots identified as `step == 0`),
+  `nodes$interval_label`, `nodes$interval_label_short` (label text when requested).
 }
 \details{
-The function first opens a new rgl window, positions the 3D camera, and draws a grid on the x–z plane.
-Edges are drawn using \code{segments3d()} and can be styled by width and color. Nodes are drawn
-as 3D spheres via \code{spheres3d()}.
+Metric scaling uses the helper `.norm_metric()` which:
+1) rescales the chosen metric to `[0,1]` over finite values, and
+2) applies the selected transform:
+   - `"linear"`: identity,
+   - `"sqrt"`: emphasizes differences at the low end,
+   - `"log"`: `log1p(9*t)/log(10)`, emphasizing very small values.
 
-The x and z axes are highlighted in red and blue, respectively, to assist orientation.
+Node elevation (`y`) is computed as `y_scale * r_norm` where `r_norm` is the node’s
+radial distance from its center normalized to the max within that coral. Optional jitter
+is added (fading to zero at the center). Root nodes (`step == 0`) that overlap are
+vertically stacked with small stems for readability.
 }
+\section{Requirements}{
+
+Requires an interactive OpenGL device (`rgl`). On headless systems, consider
+using an off-screen context or skipping examples.
+}
+

@@ -150,16 +150,26 @@ de <- niarules::differential_evolution(
   is_time_series = FALSE
 )
 
-# Use the Differential Evolution data to build the plotting data
-plots <- build_coral_plots(de$arules)
+# parse the output data
+parsed = parse_rules(de$arules)
 
-# Render the data with rgl
+# use the parsed data to build the plotting data
+layout <- build_coral_plots(parsed)
+
+# render the data with rgl
 render_coral_rgl(
-  plots$nodes, plots$edges,
-  plots$grid_size,
-  feature_cols = NULL,
-  grid_color   = "lightblue",
-  legend       = FALSE
+  layout$nodes, layout$edges, layout$grid_size,
+  grid_color = "grey80",
+  legend     = FALSE,
+  label_mode   = "none",
+  edge_width_metric  = "support",
+  edge_width_range = c(1, 5),
+  edge_width_transform = "linear",
+  edge_color_metric  = "support",
+  edge_gradient = c("#2166AC","#67A9CF","#D1E5F0","#FDDBC7","#EF8A62","#B2182B"),
+  edge_color_transform = "log",
+  node_color_by        = "type",
+  node_gradient        = c("#204060","#5B8BB5","#D7E6F2","#F5D0C6","#E57373","#991C1C")
 )
 ```
 

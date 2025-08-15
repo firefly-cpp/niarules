@@ -1,40 +1,47 @@
-library(niarules)
-library(dplyr)
+df <- data.frame(
+  Antecedent = c(
+    "A",            # A -> RHS
+    "B, A",         # B -> A -> RHS
+    "C, A",         # C -> A -> RHS
+    "D, C, A",      # D -> C -> A -> RHS
+    "E",            # E -> RHS
+    "F"             # F -> RHS
+  ),
+  Consequence = c(
+    "Target = yes",
+    "Target = yes",
+    "Target = yes",
+    "Target = yes",
+    "Target = yes",
+    "Target = yes"
+  ),
+  Support    = c(0.20, 0.12, 0.10, 0.06, 0.10, 0.20),
+  Confidence = c(0.60, 0.65, 0.62, 0.70, 0.2, 0.3),
+  Fitness    = c(1.5, 1.8, 1.7, 2.1, 1.2, 1.8),
+  stringsAsFactors = FALSE
+)
 
-# this loads a precomputed ruleset (one that has longer rules)
-rules_csv <- file.path("scripts", "abalone_rules1.csv")
-rules_df <- read.csv(rules_csv, stringsAsFactors = FALSE)
+parsed = niarules::parse_rules(df)
+#parsed
 
-get_rules_wide <- function(rules_df) {
-  rules_df %>%
-    # ensure we have the right types
-    mutate(
-      rule_id            = as.integer(rule_id),
-      support            = as.numeric(support),
-      confidence         = as.numeric(confidence),
-      lift               = as.numeric(lift),
-      antecedent_length  = as.integer(antecedent_length),
-      rhs                = as.character(rhs)
-    ) %>%
-    # keep only the columns the C++ side will use,
-    # in the exact order it expects them:
-    select(
-      rule_id,
-      support,
-      confidence,
-      lift,
-      rhs,
-      antecedent_length,
-      starts_with("lhs_")
-    )
-}
+layout = niarules::build_coral_plots(parsed)
+#layout
 
-wdf <- get_rules_wide(rules_df)
+niarules::render_coral_rgl(
+  layout$nodes, layout$edges, layout$grid_size,
+  grid_color = "grey80",
+  legend     = TRUE,
+  label_mode   = "item",
+  label_cex    = 0.7,
+  label_offset = 1.5,
+  max_labels   = 100,
+  edge_width_metric  = "lift",
+  edge_width_range = c(1, 5),
+  edge_width_transform = "linear",
+  edge_gradient = c("#2166AC","#67A9CF","#D1E5F0","#FDDBC7","#EF8A62","#B2182B"),
+  edge_alpha   = 0.6,
+  node_color_by = "type",
+  node_gradient   = c(lhs1="#9E3D3D", lhs2="#006D77", lhs3="#8A5FBF", lhs4="#6E8000"),
+)
 
-# how many radial‐plots (one per unique consequent) we need
-n_plots   <- length(unique(wdf$rhs))
-grid_size <- ceiling(sqrt(n_plots))
-
-res <- buildCoralPlots(wdf, grid_size)
-render_coral_rgl(res$nodes, res$edges, grid_size, NULL, "lightblue", FALSE)
-
+if (isTRUE(getOption("rgl.useNULL"))) rgl::rglwidget() #if rgl somehow got into null device state

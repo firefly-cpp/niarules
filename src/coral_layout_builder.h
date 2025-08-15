@@ -29,7 +29,9 @@ namespace coral_plots {
             double max_radius,
             const std::vector<std::string> &id_to_item,
             std::vector<Node> &all_nodes,
-            std::vector<Edge> &all_edges
+            std::vector<Edge> &all_edges,
+			int metric_to_use, // NEW: 0=confidence, 1=support, 2=lift
+			const std::unordered_map<int, std::vector<int>>& rhs_components	// rhs already split
         );
 
     private:
@@ -119,7 +121,8 @@ namespace coral_plots {
             std::unordered_map<int, Rule> &rules_by_id,
             const std::unordered_map<int, std::vector<int> > &rules_by_consequent,
             const std::vector<std::string> &id_to_item,
-            const std::unordered_map<int, std::vector<SingleMetric> > &single_metrics
+            const std::unordered_map<int, std::vector<SingleMetric> > &single_metrics,
+			int metric_to_use // NEW
         );
 
         /// @brief Indexes Path objects by their path ID.
@@ -228,7 +231,9 @@ namespace coral_plots {
             const std::map<RulePath, Path> &metrics_by_path_id,
             std::map<RulePath, double> a_start,
             std::map<RulePath, double> a_end,
-            std::vector<Node> &all_nodes
+            std::vector<Node> &all_nodes,
+            const std::vector<std::string>& id_to_item,
+            const std::vector<int>& root_item_ids
         );
 
         /// @brief Constructs edges between nodes based on rule paths and their metrics.

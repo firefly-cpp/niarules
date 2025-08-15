@@ -10,21 +10,34 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
-// buildCoralPlots
-List buildCoralPlots(const DataFrame& rulesDF, int grid_size);
-RcppExport SEXP _niarules_buildCoralPlots(SEXP rulesDFSEXP, SEXP grid_sizeSEXP) {
+// parse_rules_cpp
+Rcpp::List parse_rules_cpp(Rcpp::DataFrame rules_df);
+RcppExport SEXP _niarules_parse_rules_cpp(SEXP rules_dfSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const DataFrame& >::type rulesDF(rulesDFSEXP);
+    Rcpp::traits::input_parameter< Rcpp::DataFrame >::type rules_df(rules_dfSEXP);
+    rcpp_result_gen = Rcpp::wrap(parse_rules_cpp(rules_df));
+    return rcpp_result_gen;
+END_RCPP
+}
+// build_layout_cpp
+Rcpp::List build_layout_cpp(Rcpp::List parsed, int grid_size, std::string lhs_sort);
+RcppExport SEXP _niarules_build_layout_cpp(SEXP parsedSEXP, SEXP grid_sizeSEXP, SEXP lhs_sortSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< Rcpp::List >::type parsed(parsedSEXP);
     Rcpp::traits::input_parameter< int >::type grid_size(grid_sizeSEXP);
-    rcpp_result_gen = Rcpp::wrap(buildCoralPlots(rulesDF, grid_size));
+    Rcpp::traits::input_parameter< std::string >::type lhs_sort(lhs_sortSEXP);
+    rcpp_result_gen = Rcpp::wrap(build_layout_cpp(parsed, grid_size, lhs_sort));
     return rcpp_result_gen;
 END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_niarules_buildCoralPlots", (DL_FUNC) &_niarules_buildCoralPlots, 2},
+    {"_niarules_parse_rules_cpp", (DL_FUNC) &_niarules_parse_rules_cpp, 1},
+    {"_niarules_build_layout_cpp", (DL_FUNC) &_niarules_build_layout_cpp, 3},
     {NULL, NULL, 0}
 };
 

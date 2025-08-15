@@ -1,4 +1,6 @@
 ﻿#include "coral_layout_builder.h"
+#include "string_splitter.h"
+#include "interval_parser.h"
 
 #include <algorithm>
 #include <cmath>
@@ -7,43 +9,66 @@
 #include <Rcpp.h>
 
 namespace coral_plots {
+
     void CoralLayoutBuilder::build(
         const std::vector<Rule> &rules,
         int grid_size,
         double max_radius,
         const std::vector<std::string> &id_to_item,
         std::vector<Node> &all_nodes,
-        std::vector<Edge> &all_edges
+        std::vector<Edge> &all_edges,
+		int metric_to_use,
+		const std::unordered_map<int, std::vector<int>>& rhs_components
     ) {
         auto rules_by_id = groupRulesById(rules);
         const auto rules_by_single_metrics = groupRulesBySingleMetrics(rules);
         const auto rules_by_consequent = groupRulesByConsequent(rules);
-        auto paths_by_consequent = groupPathsByConsequent(rules_by_id, rules_by_consequent, id_to_item, rules_by_single_metrics);
+
+        auto paths_by_consequent = groupPathsByConsequent(rules_by_id, rules_by_consequent, id_to_item, rules_by_single_metrics, metric_to_use);
         all_nodes.clear();
         all_edges.clear();
         unsigned plot_id = 0;
-        for (const auto &[rhs, paths]: paths_by_consequent) {
+
+        for (const auto& [rhs, paths] : paths_by_consequent) {
             double x_off = plot_id / grid_size + 0.5;
             double z_off = plot_id % grid_size + 0.5;
+
+			std::vector<int> root_item_ids;
+			if (auto it = rhs_components.find(rhs); it != rhs_components.end() && !it->second.empty()) {
+			  root_item_ids = it->second;
+			} else {
+			  root_item_ids = { rhs };
+			}
+
             const auto metrics_by_path_id = groupMetricsByPathID(paths);
             auto children = calculateChildren(metrics_by_path_id);
-            auto [root,leaf_counts] = calculateLeafCounts(rhs, children, metrics_by_path_id);
+            auto [root, leaf_counts] = calculateLeafCounts(rhs, children, metrics_by_path_id);
             auto [support_node, lift_node] = getSupportAndLiftNodes(metrics_by_path_id);
-            // root’s outgoing support = average over children
-            // root's lift = 0
+
+            // root’s outgoing support = avg over children; root's lift = 0
             {
-                auto const &ch = children[root];
+                auto const& ch = children[root];
                 double sum = 0;
-                for (auto const &child: ch) sum += support_node[child];
+                for (auto const& child : ch) sum += support_node[child];
                 support_node[root] = ch.empty() ? 0 : sum / ch.size();
                 lift_node[root] = 0;
             }
 
             auto max_depth = determineMaxDepth(metrics_by_path_id);
             auto [a_start, a_end] = computeAngularSpans(root, max_depth, children, leaf_counts, metrics_by_path_id);
-            auto coordinates = buildNodes(x_off, z_off, support_node, lift_node, root, max_depth, max_radius, leaf_counts, metrics_by_path_id, a_start, a_end, all_nodes);
-            buildEdges(paths, coordinates, all_edges);
 
+			auto coordinates = buildNodes(
+			  x_off, z_off,
+			  support_node, lift_node,
+			  root, max_depth, max_radius,
+			  leaf_counts, metrics_by_path_id,
+			  a_start, a_end,
+			  all_nodes,
+			  id_to_item,
+			  root_item_ids
+			);
+
+            buildEdges(paths, coordinates, all_edges);
             ++plot_id;
         }
     }
@@ -108,7 +133,8 @@ namespace coral_plots {
         std::unordered_map<int, Rule> &rules_by_id,
         const std::unordered_map<int, std::vector<int> > &rules_by_consequent,
         const std::vector<std::string> &id_to_item,
-        const std::unordered_map<int, std::vector<SingleMetric> > &single_metrics
+        const std::unordered_map<int, std::vector<SingleMetric> > &single_metrics,
+		int metric_to_use // NEW
     ) {
         std::unordered_map<int, std::vector<Path> > paths_per_consequent;
 
@@ -120,7 +146,7 @@ namespace coral_plots {
                 RuleMetric metric{rule.confidence, rule.lift, rule.support};
 
                 // sort the lhs depending on metric (here -> confidence)
-                auto sorted_lhs = sortByMetric(rhs, rule.antecedent, id_to_item, single_metrics, 0);
+                auto sorted_lhs = sortByMetric(rhs, rule.antecedent, id_to_item, single_metrics, metric_to_use);
 
                 RulePath prefix;
                 prefix.reserve(1 + sorted_lhs.size());
@@ -271,45 +297,94 @@ namespace coral_plots {
         const std::map<RulePath, Path> &metrics_by_path_id,
         std::map<RulePath, double> a_start,
         std::map<RulePath, double> a_end,
-        std::vector<Node> &all_nodes
+        std::vector<Node> &all_nodes,
+        const std::vector<std::string>& id_to_item,
+        const std::vector<int>& root_item_ids
     ) {
-        // find global lift range for node-radius mapping
-        double min_l = 1e9, max_l = -1e9;
-        for (const auto &[_, val]: lift_node) {
-            min_l = std::min(min_l, val);
-            max_l = std::max(max_l, val);
-        }
-
-        // build nodes, mapping lift to radius & also capture their coords in a map
         std::map<RulePath, std::tuple<double, double, double> > coordinates;
         coordinates[root] = std::make_tuple(x_off, 0.0, z_off);
-        for (const auto &[pfx, _]: metrics_by_path_id) {
-            constexpr double min_r = 0.005;
-            constexpr double max_r = 0.02;
+
+        // emit visible step-0 nodes
+        // if we have multiple RHS items, make one node per item at the center; otherwise, keep the single combined root node.
+        if (root_item_ids.size() <= 1) {
+            Node node;
+            node.path_id = root;
+            node.step = 0;
+            node.item = (root_item_ids.empty() ? root.back() : root_item_ids[0]);
+            node.leafcount = leaf_counts[root];
+            node.angle_start = 0.0; node.angle_end = 2 * PI; node.angle = 0.0;
+            node.radius = 0.0;
+            node.x_offset = x_off; node.z_offset = z_off;
+            node.x = x_off; node.z = z_off;
+            node.node_radius = 0.01;
+            const std::string& label = id_to_item[node.item];
+            ParsedItem P = parse_interval_info(label);
+            node.type = P.type;
+            node.kind = P.kind;
+            node.interval_low = P.low;
+            node.interval_high = P.high;
+            node.incl_low = P.incl_low;
+            node.incl_high = P.incl_high;
+            node.category_val = P.category_val;
+            node.interval_label = P.interval_label;
+            node.interval_label_short = P.interval_label_short;
+            all_nodes.push_back(std::move(node));
+        }
+        else {
+            for (int rid : root_item_ids) {
+                Node node;
+                node.path_id = root;     // logical root path for layout grouping
+                node.step = 0;
+                node.item = rid;         // show the *individual* item label/color
+                node.leafcount = leaf_counts[root];
+                node.angle_start = 0.0; node.angle_end = 2 * PI; node.angle = 0.0;
+                node.radius = 0.0;
+                node.x_offset = x_off; node.z_offset = z_off;
+                node.x = x_off; node.z = z_off;
+                node.node_radius = 0.01;
+                const std::string& label = id_to_item[node.item];
+                ParsedItem P = parse_interval_info(label);
+                node.type = P.type;
+                node.kind = P.kind;
+                node.interval_low = P.low;
+                node.interval_high = P.high;
+                node.incl_low = P.incl_low;
+                node.incl_high = P.incl_high;
+                node.category_val = P.category_val;
+                node.interval_label = P.interval_label;
+                node.interval_label_short = P.interval_label_short;
+                all_nodes.push_back(std::move(node));
+            }
+        }
+
+        // -- non-root nodes as before --
+        for (const auto& [pfx, _] : metrics_by_path_id) {
             Node node;
             node.path_id = pfx;
             node.step = static_cast<unsigned>(pfx.size());
             node.item = pfx.back();
             node.leafcount = leaf_counts[pfx];
-            node.support_node = support_node[pfx];
-            node.lift_node = lift_node[pfx];
             node.angle_start = a_start[pfx];
             node.angle_end = a_end[pfx];
             node.angle = 0.5 * (node.angle_start + node.angle_end);
             node.radius = (node.step - 1.0) / (max_depth - 1.0) * max_radius;
-            node.x_offset = x_off;
-            node.z_offset = z_off;
+            node.x_offset = x_off; node.z_offset = z_off;
             node.x = node.x_offset + node.radius * std::cos(node.angle);
             node.z = node.z_offset + node.radius * std::sin(node.angle);
-            node.y = 0.0;
+            const std::string& label = id_to_item[node.item];
+            ParsedItem P = parse_interval_info(label);
+            node.type = P.type;
+            node.kind = P.kind;
+            node.interval_low = P.low;
+            node.interval_high = P.high;
+            node.incl_low = P.incl_low;
+            node.incl_high = P.incl_high;
+            node.category_val = P.category_val;
+            node.interval_label = P.interval_label;
+            node.interval_label_short = P.interval_label_short;
+            node.node_radius = 0.01;
 
-            if (max_l > min_l)
-                node.node_radius = (node.lift_node - min_l) / (max_l - min_l) * (max_r - min_r) + min_r;
-            else
-                node.node_radius = 0.5 * (min_r + max_r);
-
-            coordinates[pfx] = {node.x, node.y, node.z};
-
+            coordinates[pfx] = { node.x, 0, node.z };
             all_nodes.push_back(std::move(node));
         }
         return coordinates;
@@ -333,14 +408,9 @@ namespace coral_plots {
             e.confidence = p.confidence;
             e.lift = p.lift;
 
-            std::tie(e.x_start, e.y_start, e.z_start) = coordinates[parent];
-            std::tie(e.x_end, e.y_end, e.z_end) = coordinates[child];
-
-            // line width from [1..5]
-            if (max_s > min_s)
-                e.line_width = (p.support - min_s) / (max_s - min_s) * 4.0 + 1.0;
-            else
-                e.line_width = 3.0;
+            double y = 0;
+            std::tie(e.x_start, y, e.z_start) = coordinates[parent];
+            std::tie(e.x_end, y, e.z_end) = coordinates[child];
 
             all_edges.push_back(std::move(e));
         }
