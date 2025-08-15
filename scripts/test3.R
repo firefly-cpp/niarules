@@ -1,6 +1,3 @@
-library(niarules)
-
-# One plot (single RHS) with complex shared structure
 df <- data.frame(
   Antecedent = c(
     # depth 1 spokes
@@ -35,7 +32,7 @@ df <- data.frame(
     # depth 5 (one long tendril)
     "lhs19 <= 0,       lhs14 [2, 5],     lhs8 [0.4, 0.9), lhs4 > 10, lhs2 = A"
   ),
-  Consequence = "Outcome = yes, Test=true, HaveFun = 0.1",   # single RHS → single plot
+  Consequence = "Outcome = yes, Test=true, HaveFun = 0.1",
   Support    = c(
     # depth 1
     0.22, 0.20, 0.18, 0.17,
@@ -56,7 +53,7 @@ df <- data.frame(
     0.70, 0.69, 0.68, 0.69, 0.68,
     0.72
   ),
-  Fitness    = c(  # treat as "lift" in your pipeline
+  Fitness    = c(
     1.3, 1.4, 1.35, 1.25,
     1.6, 1.55, 1.5, 1.45, 1.45, 1.42,
     1.75, 1.7, 1.68, 1.72, 1.7, 1.62,
@@ -66,13 +63,13 @@ df <- data.frame(
   stringsAsFactors = FALSE
 )
 
-parsed = parse_rules(df)
-parsed
+parsed = niarules::parse_rules(df)
+#parsed
 
-layout = build_coral_plots(parsed)
-layout
+layout = niarules::build_coral_plots(parsed)
+#layout
 
-render_coral_rgl(
+niarules::render_coral_rgl(
   layout$nodes, layout$edges, layout$grid_size,
   grid_color = "grey80",
   legend     = FALSE,
@@ -81,14 +78,17 @@ render_coral_rgl(
   #label_offset = 1.5,
   #max_labels   = 100,
   edge_width_metric    = "support",
+  edge_width_range     = c(4, 8),
   edge_width_transform = "linear",
   edge_color_metric    = "lift",
   edge_color_transform = "linear",
   edge_gradient        = c("#2166AC","#67A9CF","#D1E5F0","#FDDBC7","#EF8A62","#B2182B"),
   edge_alpha_metric    = "confidence",
-  edge_alpha_range     = c(0.1, 0.2),
+  edge_alpha_range     = c(0.25, 1),
   edge_alpha_transform = "linear",
   node_color_by = "item",
   node_gradient   = c(lhs1="#9E3D3D", lhs2="#006D77", lhs3="#8A5FBF", lhs4="#6E8000"),
   y_scale = 0.15, jitter_sd = 0.015, jitter_mode = "deterministic"
 )
+
+if (isTRUE(getOption("rgl.useNULL"))) rgl::rglwidget() #if rgl somehow got into null device state

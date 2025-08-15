@@ -28,7 +28,8 @@ Imports:
 	rlang,
 	rgl
 Suggests:
-  testthat
+  testthat,
+  withr
 LinkingTo: 
   Rcpp
 NAMESPACE:

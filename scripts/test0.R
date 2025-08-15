@@ -40,19 +40,26 @@ read_rules_csv_for_parse <- function(path) {
 
 rules_path <- system.file("extdata", "abalone_rules.csv", package = "niarules", mustWork = TRUE)
 df <- read_rules_csv_for_parse(rules_path)
-parsed  <- parse_rules(df)
+parsed  <- niarules::parse_rules(df)
 #parsed
 
-layout  <- build_coral_plots(parsed, lhs_sort_metric = "confidence")
+layout  <- niarules::build_coral_plots(parsed, lhs_sort_metric = "confidence")
 #layout
 
-render_coral_rgl(
+niarules::render_coral_rgl(
   layout$nodes, layout$edges, layout$grid_size,
   edge_width_metric    = "confidence",
   edge_width_range     = c(1, 4),
   edge_width_transform = "log",
+  edge_color_metric    = "confidence",
+  edge_color_transform = "linear",
   edge_gradient        = c("#2166AC","#67A9CF","#D1E5F0","#FDDBC7","#EF8A62","#B2182B"),
+  edge_alpha_metric    = "support",
+  edge_alpha_range     = c(0.25, 1),
+  edge_alpha_transform = "linear",
   node_color_by        = "item",
   node_gradient        = c("#204060","#5B8BB5","#D7E6F2","#F5D0C6","#E57373","#991C1C"),
   y_scale = 0.15, jitter_sd = 0.015, jitter_mode = "random", jitter_seed = 1000
 )
+
+if (isTRUE(getOption("rgl.useNULL"))) rgl::rglwidget() #if rgl somehow got into null device state

@@ -21,7 +21,7 @@ render_coral_rgl(
   edge_width_transform = c("linear", "sqrt", "log"),
   edge_gradient = c("#2166AC", "#67A9CF", "#D1E5F0", "#FDDBC7", "#EF8A62", "#B2182B"),
   edge_color_transform = c("linear", "sqrt", "log"),
-  edge_alpha = 0.6,
+  edge_alpha = 0.5,
   edge_alpha_range = c(0.25, 0.5),
   edge_alpha_transform = c("linear", "sqrt", "log"),
   node_color_by = c("type", "item", "none", "edge_incoming", "edge_outgoing_mean"),

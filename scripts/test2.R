@@ -1,5 +1,3 @@
-library(niarules)
-
 data_raw <- niarules::read_dataset("inst/extdata/Abalone.csv")
 features <- niarules::extract_feature_info(data_raw)
 d <- niarules::problem_dimension(features, is_time_series = FALSE)
@@ -15,14 +13,11 @@ de <- niarules::differential_evolution(
   is_time_series = FALSE
 )
 
-# parse the output data
-parsed = parse_rules(de$arules)
+parsed = niarules::parse_rules(de$arules)
 
-# use the parsed data to build the plotting data
-layout <- build_coral_plots(parsed)
+layout <- niarules::build_coral_plots(parsed)
 
-# render the data with rgl
-render_coral_rgl(
+niarules::render_coral_rgl(
   layout$nodes, layout$edges, layout$grid_size,
   grid_color = "grey80",
   legend     = FALSE,
@@ -36,3 +31,5 @@ render_coral_rgl(
   node_color_by        = "type",
   node_gradient        = c("#204060","#5B8BB5","#D7E6F2","#F5D0C6","#E57373","#991C1C")
 )
+
+if (isTRUE(getOption("rgl.useNULL"))) rgl::rglwidget() #if rgl somehow got into null device state

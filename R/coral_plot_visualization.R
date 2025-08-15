@@ -143,7 +143,7 @@ render_coral_rgl <- function(
     edge_color_transform= c("linear","sqrt","log"),
     
     # alpha controls
-    edge_alpha          = 0.6,
+    edge_alpha          = 0.5,
     edge_alpha_range    = c(0.25, 0.5),
     edge_alpha_transform= c("linear","sqrt","log"),
     
@@ -213,7 +213,8 @@ render_coral_rgl <- function(
     a  <- edge_alpha_range[1] + ta * (edge_alpha_range[2] - edge_alpha_range[1])
   }
   a <- pmin(pmax(a, 0), 1)
-  edges$color <- grDevices::rgb(rgb[,1], rgb[,2], rgb[,3], alpha = a, maxColorValue = 255)
+  edges$color <- grDevices::rgb(rgb[,1]/255, rgb[,2]/255, rgb[,3]/255, alpha = 0.1, maxColorValue = 1)
+  edges$alpha <- a
   edges$t_color_norm <- tc
   
   #### node styling (color)
@@ -316,18 +317,6 @@ render_coral_rgl <- function(
   for (z in zs) rgl::lines3d(x = xlim, y = 0, z = c(z, z), color = grid_color)
   for (x in xs) rgl::lines3d(x = x, y = c(0, 0), z = zlim, color = grid_color)
   
-  if (nrow(edges)) {
-    edges$width_binned <- round(edges$width, 2)
-    styles <- unique(edges[c("color","width_binned")])
-    for (i in seq_len(nrow(styles))) {
-      st  <- styles[i, ]
-      sub <- edges[edges$color == st$color & edges$width_binned == st$width_binned, ]
-      coords <- as.numeric(t(cbind(sub$x, sub$y, sub$z,
-                                   sub$x_end, sub$y_end, sub$z_end)))
-      rgl::segments3d(coords, color = st$color, lwd = st$width_binned, alpha = 1)
-    }
-  }
-  
   node_cols <- if ("color" %in% names(nodes)) {
     col <- as.character(nodes$color); col[is.na(col) | !nzchar(col)] <- "black"; col
   } else "black"
@@ -355,7 +344,21 @@ render_coral_rgl <- function(
       nodes$x[stems], nodes$y[stems], nodes$z[stems],
       nodes$x[stems], y_draw[stems],  nodes$z[stems]
     )))
-    rgl::segments3d(segs, color = "grey50", alpha = 0.5, lwd = 2)
+    rgl::segments3d(segs, color = "grey50", alpha = 0.5, depth_mask = FALSE, lwd = 2)
+  }
+  
+  if (nrow(edges)) {
+    edges$width_binned <- round(edges$width, 2)
+    edges$alpha_binned <- round(edges$alpha, 3)
+    styles <- unique(edges[c("width_binned","alpha_binned","color")])
+    for (i in seq_len(nrow(styles))) {
+      st <- styles[i, ]
+      idx <- edges$width_binned == st$width_binned & edges$alpha_binned == st$alpha_binned & edges$color == st$color
+      sub <- edges[idx, , drop = FALSE]
+      coords <- as.numeric(t(cbind(sub$x, sub$y, sub$z, sub$x_end, sub$y_end, sub$z_end)))
+      rgl::segments3d(coords, color = st$color, alpha = st$alpha_binned,
+                      lwd = st$width_binned, depth_mask = FALSE)
+    }
   }
   
   rgl::spheres3d(nodes$x, y_draw, nodes$z, radius = nodes$radius, color = node_cols)

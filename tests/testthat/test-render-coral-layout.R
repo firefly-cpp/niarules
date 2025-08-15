@@ -1,14 +1,5 @@
 library(testthat)
 
-# use headless rgl for CI
-setup({
-  skip_if_not_installed("rgl")
-  old <- getOption("rgl.useNULL")
-  options(rgl.useNULL = TRUE)
-  on.exit(options(rgl.useNULL = old), add = TRUE)
-  
-})
-
 mk_df <- function() {
   data.frame(
     Antecedent  = c('A = a','B = b','A = a, B = b','C in [1, 2]','D >= 10'),
@@ -22,6 +13,7 @@ mk_df <- function() {
 }
 
 test_that("render_coral_rgl runs headless and draws shapes", {
+  withr::local_options(rgl.useNULL = TRUE)
   skip_if_not_installed("rgl")
   df <- mk_df()
   parsed <- parse_rules(df)
@@ -37,6 +29,7 @@ test_that("render_coral_rgl runs headless and draws shapes", {
 })
 
 test_that("edge widths map to chosen metric and range (via return_data)", {
+  withr::local_options(rgl.useNULL = TRUE) 
   skip_if_not_installed("rgl")
   df <- mk_df()
   parsed <- parse_rules(df)
@@ -64,6 +57,7 @@ test_that("edge widths map to chosen metric and range (via return_data)", {
 })
 
 test_that("edge width transform changes width distribution", {
+  withr::local_options(rgl.useNULL = TRUE) 
   skip_if_not_installed("rgl")
   df <- mk_df()
   parsed <- parse_rules(df)
@@ -83,6 +77,7 @@ test_that("edge width transform changes width distribution", {
 })
 
 test_that("changing edge_gradient or color metric changes edge colors", {
+  withr::local_options(rgl.useNULL = TRUE)
   skip_if_not_installed("rgl")
   df <- mk_df()
   parsed <- parse_rules(df)
@@ -110,6 +105,7 @@ test_that("changing edge_gradient or color metric changes edge colors", {
 })
 
 test_that("width and color metrics are decoupled", {
+  withr::local_options(rgl.useNULL = TRUE)
   skip_if_not_installed("rgl")
   df <- mk_df()
   parsed <- parse_rules(df)
@@ -160,6 +156,7 @@ test_that("width and color metrics are decoupled", {
 #})
 
 test_that("node coloring by type vs item and overrides", {
+  withr::local_options(rgl.useNULL = TRUE)
   skip_if_not_installed("rgl")
   df <- mk_df()
   parsed <- parse_rules(df)
@@ -180,6 +177,7 @@ test_that("node coloring by type vs item and overrides", {
 })
 
 test_that("node_color_by = 'none' doesn't overwrite existing node colors", {
+  withr::local_options(rgl.useNULL = TRUE)
   skip_if_not_installed("rgl")
   df <- mk_df()
   parsed <- parse_rules(df)
