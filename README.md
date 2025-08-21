@@ -173,6 +173,10 @@ render_coral_rgl(
 )
 ```
 
+## Example Image
+
+![coral-plot-example.png](man/figures/coral-plot-example.png)
+
 ## 📚 Reference Papers
 
 Ideas are based on the following research papers:

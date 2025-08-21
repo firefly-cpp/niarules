@@ -3,9 +3,9 @@ Type: Package
 Title: Numerical Association Rule Mining using Population-Based Nature-Inspired Algorithms
 Version: 0.2.0
 Authors@R: c(
-    person("Iztok Jr.", "Fister", role = c("aut", "cre", "cph"),
-	email = "iztok@iztok.space",
-	comment = c(ORCID = "0000-0002-6418-1272")))
+    person("Iztok Jr.", "Fister", role = c("aut", "cre", "cph"), email = "iztok@iztok.space",	comment = c(ORCID = "0000-0002-6418-1272")),
+    person("Gerlinde", "Emsenhuber", role = c("aut"), comment = c(ORCID = "0000-0001-7776-586X")),
+    person("Jan Hendrik", "Plümer", role = c("aut"), comment = c(ORCID = "0009-0000-3722-1702")))
 Classification/ACM: G.4, H.2.8
 Description: Framework is devoted to mining numerical association rules through the
   utilization of nature-inspired algorithms for optimization. Drawing inspiration
