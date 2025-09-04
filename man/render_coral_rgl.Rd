@@ -8,12 +8,17 @@ render_coral_rgl(
   nodes,
   edges,
   grid_size,
-  grid_color = "grey80",
+  grid_outline = FALSE,
+  grid_color = "grey92",
   legend = FALSE,
   label_mode = c("none", "interval", "item", "interval_short"),
   label_cex = 0.7,
   label_offset = 1.5,
   max_labels = 100,
+  label_color = NULL,
+  theme = c("default", "studio", "flat", "dark", "none"),
+  theme_overrides = NULL,
+  apply_theme = TRUE,
   edge_width_metric = c("confidence", "lift", "support"),
   edge_color_metric = c("confidence", "lift", "support"),
   edge_alpha_metric = NULL,
@@ -45,6 +50,9 @@ and metric columns `support`, `confidence`, `lift`.}
 
 \item{grid_size}{integer; the layout grid size (usually `build_coral_layout()$grid_size`).}
 
+\item{grid_outline}{Logical; if `TRUE` draws the reference grid/guide (using `grid_color`
+or the theme’s grid color). Defaults to `FALSE` for clean screenshots.}
+
 \item{grid_color}{background grid color. Any R color spec. Default `"grey80"`.}
 
 \item{legend}{logical; draw a node legend keyed by base feature (`nodes$feature`).
@@ -58,8 +66,28 @@ Controls label text: interval labels, item labels, or no labels.}
 \item{label_offset}{numeric; vertical offset (in **node radii**) applied
 to labels (positive values move labels downward from sphere tops). Default `1.5`.}
 
-\item{max_labels}{integer; maximum number of **non-root** labels to keep (largest radii first).
-Root nodes are always kept. Default `100`.}
+\item{max_labels}{integer; maximum number of non-root labels (largest radii first).
+Root nodes are always kept. If <= 0, only root (RHS) labels are drawn.}
+
+\item{label_color}{NULL to color labels like their nodes, or a single color / vector to override.}
+
+\item{theme}{Character string; one of `"default"`, `"studio"`, `"flat"`, `"dark"`, `"none"`.
+Selects a preset for lights, materials, and background:
+- **default**: balanced lighting with subtle specular highlights.
+- **studio**: brighter, glossy look for screenshots.
+- **flat**: low-specular, diagram-style shading.
+- **dark**: dark background with rim lighting.
+- **none**: no lights configured (use existing rgl state/ambient).}
+
+\item{theme_overrides}{Optional named list to partially override the selected theme.
+Supported keys: `background` (color), `grid_color` (color), 
+`materials` (list with sublists `nodes`, `edges`, `labels` — each passed to
+[rgl::material3d()]), and `lights` (list of argument lists for [rgl::light3d()]).
+Example: `list(lights = list(list(theta = 60, phi = 30)))`.}
+
+\item{apply_theme}{Logical; if `TRUE` (default) the theme is applied at the start of rendering
+(background, lights, global/material defaults). Set to `FALSE` to keep the current rgl device
+state (useful when you configure lights/materials once for batch rendering).}
 
 \item{edge_width_metric}{character; which metric to map to edge **width**.
 One of `"confidence"`, `"lift"`, `"support"`. Default `"confidence"`.}

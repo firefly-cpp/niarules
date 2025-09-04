@@ -23,6 +23,8 @@
 #'   `x`, `y`, `z`, `x_end`, `y_end`, `z_end`, `parent_path`, `child_path`,
 #'   and metric columns `support`, `confidence`, `lift`.
 #' @param grid_size integer; the layout grid size (usually `build_coral_layout()$grid_size`).
+#' @param grid_outline Logical; if `TRUE` draws the reference grid/guide (using `grid_color`
+#'   or the theme’s grid color). Defaults to `FALSE` for clean screenshots.
 #' @param grid_color background grid color. Any R color spec. Default `"grey80"`.
 #' @param legend logical; draw a node legend keyed by base feature (`nodes$feature`).
 #'   Requires that `nodes$feature` and node colors are available. Default `FALSE`.
@@ -34,7 +36,21 @@
 #' @param max_labels integer; maximum number of non-root labels (largest radii first).
 #'   Root nodes are always kept. If <= 0, only root (RHS) labels are drawn.
 #' @param label_color NULL to color labels like their nodes, or a single color / vector to override.
-#'
+#' @param theme Character string; one of `"default"`, `"studio"`, `"flat"`, `"dark"`, `"none"`.
+#'   Selects a preset for lights, materials, and background:
+#'   - **default**: balanced lighting with subtle specular highlights.
+#'   - **studio**: brighter, glossy look for screenshots.
+#'   - **flat**: low-specular, diagram-style shading.
+#'   - **dark**: dark background with rim lighting.
+#'   - **none**: no lights configured (use existing rgl state/ambient).
+#' @param theme_overrides Optional named list to partially override the selected theme.
+#'   Supported keys: `background` (color), `grid_color` (color), 
+#'   `materials` (list with sublists `nodes`, `edges`, `labels` — each passed to
+#'   [rgl::material3d()]), and `lights` (list of argument lists for [rgl::light3d()]).
+#'   Example: `list(lights = list(list(theta = 60, phi = 30)))`.
+#' @param apply_theme Logical; if `TRUE` (default) the theme is applied at the start of rendering
+#'   (background, lights, global/material defaults). Set to `FALSE` to keep the current rgl device
+#'   state (useful when you configure lights/materials once for batch rendering).
 #' @param edge_width_metric character; which metric to map to edge **width**.
 #'   One of `"confidence"`, `"lift"`, `"support"`. Default `"confidence"`.
 #' @param edge_color_metric character; which metric to map to edge **color**.
@@ -123,14 +139,23 @@
 #' @importFrom dplyr distinct
 #' @export
 render_coral_rgl <- function(
-    nodes, edges, grid_size,
-    grid_color   = "grey80",
+    nodes, edges,
+    
+    grid_size,
+    grid_outline = FALSE,
+    grid_color   = "grey92",
+    
     legend       = FALSE,
+    
     label_mode   = c("none", "interval", "item", "interval_short"),
     label_cex    = 0.7,
     label_offset = 1.5,
     max_labels   = 100,
     label_color  = NULL,
+    
+    theme = c("default","studio","flat","dark","none"),
+    theme_overrides = NULL,
+    apply_theme  = TRUE,
     
     edge_width_metric   = c("confidence","lift","support"),
     edge_color_metric   = c("confidence","lift","support"),
@@ -160,6 +185,15 @@ render_coral_rgl <- function(
     
     return_data = FALSE
 ) {
+  
+  # ensure a device exists so apply_theme doesn't create one
+  if (rgl::rgl.cur() == 0) rgl::open3d()
+  
+  theme <- match.arg(theme)
+  th <- coral_get_theme(theme, theme_overrides)
+  if (missing(grid_color) && !is.null(th$grid_color)) grid_color <- th$grid_color
+  if (isTRUE(apply_theme)) coral_apply_theme(th)
+  
   label_mode           <- match.arg(label_mode)
   node_color_by     <- match.arg(node_color_by)
   node_gradient_map <- match.arg(node_gradient_map)
@@ -306,18 +340,20 @@ render_coral_rgl <- function(
   edges$y_end <- nodes$y[idx_child]
   
   #### draw
-  rgl::open3d()
+  if (rgl::rgl.cur() == 0) rgl::open3d()
   rgl::par3d(windowRect = c(50, 50, 1000, 1000))
   phi_deg <- atan2(grid_size * 0.5, grid_size * 1.5) * 180 / pi
   rgl::view3d(theta = 0, phi = phi_deg, fov = 60)
   rgl::aspect3d(1, 1, 1)
   rgl::par3d(skipRedraw = TRUE)
   
-  xlim <- c(0, grid_size); zlim <- c(0, grid_size)
-  xs   <- seq(xlim[1], xlim[2], by = 1)
-  zs   <- seq(zlim[1], zlim[2], by = 1)
-  for (z in zs) rgl::lines3d(x = xlim, y = 0, z = c(z, z), color = grid_color)
-  for (x in xs) rgl::lines3d(x = x, y = c(0, 0), z = zlim, color = grid_color)
+  if (grid_outline) {
+    xlim <- c(0, grid_size); zlim <- c(0, grid_size)
+    xs   <- seq(xlim[1], xlim[2], by = 1)
+    zs   <- seq(zlim[1], zlim[2], by = 1)
+    for (z in zs) rgl::lines3d(x = xlim, y = 0, z = c(z, z), color = grid_color)
+    for (x in xs) rgl::lines3d(x = x, y = c(0, 0), z = zlim, color = grid_color)
+  }
   
   node_cols <- if ("color" %in% names(nodes)) {
     col <- as.character(nodes$color); col[is.na(col) | !nzchar(col)] <- "black"; col
@@ -360,11 +396,13 @@ render_coral_rgl <- function(
         edges$color == st$color
       sub <- edges[edge_idx, , drop = FALSE]
       coords <- as.numeric(t(cbind(sub$x, sub$y, sub$z, sub$x_end, sub$y_end, sub$z_end)))
+      if (!is.null(th$materials$edges)) do.call(rgl::material3d, th$materials$edges)
       rgl::segments3d(coords, color = st$color, alpha = st$alpha_binned,
                       lwd = st$width_binned, depth_mask = FALSE)
     }
   }
   
+  if (!is.null(th$materials$nodes)) do.call(rgl::material3d, th$materials$nodes)
   rgl::spheres3d(nodes$x, y_draw, nodes$z, radius = nodes$radius, color = node_cols)
   
   if (label_mode != "none") {
@@ -402,8 +440,13 @@ render_coral_rgl <- function(
       node_cols
     }
     
-    # draw labels in front of geometry
-    rgl::material3d(depth_test = "always")
+    lbl_mat <- th$materials$labels %||% list()
+    # respect an explicit theme override if the user really wants different behavior;
+    # otherwise default to "always" so labels stay in front.
+    if (is.null(lbl_mat$depth_test)) lbl_mat$depth_test <- "always"
+    
+    do.call(rgl::material3d, lbl_mat)
+    
     rgl::text3d(
       x = nodes$x[keep],
       y = y_label[keep],
@@ -414,6 +457,8 @@ render_coral_rgl <- function(
       fixedSize = TRUE,
       adj       = c(0.5, 1)
     )
+    
+    # Important: restore the normal depth test so later geometry behaves as expected
     rgl::material3d(depth_test = "less")
   }
   
