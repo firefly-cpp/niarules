@@ -48,6 +48,8 @@ layout  <- niarules::build_coral_plots(parsed, lhs_sort_metric = "confidence")
 
 niarules::render_coral_rgl(
   layout$nodes, layout$edges, layout$grid_size,
+  label_mode = "item",
+  max_labels = 100,
   edge_width_metric    = "confidence",
   edge_width_range     = c(1, 4),
   edge_width_transform = "log",

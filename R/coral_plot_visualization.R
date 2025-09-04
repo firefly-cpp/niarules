@@ -31,8 +31,9 @@
 #' @param label_cex numeric; label size passed to `rgl::text3d()`. Default `0.7`.
 #' @param label_offset numeric; vertical offset (in **node radii**) applied
 #'   to labels (positive values move labels downward from sphere tops). Default `1.5`.
-#' @param max_labels integer; maximum number of **non-root** labels to keep (largest radii first).
-#'   Root nodes are always kept. Default `100`.
+#' @param max_labels integer; maximum number of non-root labels (largest radii first).
+#'   Root nodes are always kept. If <= 0, only root (RHS) labels are drawn.
+#' @param label_color NULL to color labels like their nodes, or a single color / vector to override.
 #'
 #' @param edge_width_metric character; which metric to map to edge **width**.
 #'   One of `"confidence"`, `"lift"`, `"support"`. Default `"confidence"`.
@@ -129,6 +130,7 @@ render_coral_rgl <- function(
     label_cex    = 0.7,
     label_offset = 1.5,
     max_labels   = 100,
+    label_color  = NULL,
     
     edge_width_metric   = c("confidence","lift","support"),
     edge_color_metric   = c("confidence","lift","support"),
@@ -366,6 +368,7 @@ render_coral_rgl <- function(
   rgl::spheres3d(nodes$x, y_draw, nodes$z, radius = nodes$radius, color = node_cols)
   
   if (label_mode != "none") {
+    # choose label text
     txt <- if (label_mode == "interval" && "interval_label" %in% names(nodes)) {
       nodes$interval_label
     } else if (label_mode == "interval_short" && "interval_label_short" %in% names(nodes)) {
@@ -373,25 +376,47 @@ render_coral_rgl <- function(
     } else {
       nodes$item
     }
-    ord <- order(nodes$radius, decreasing = TRUE)
-    keep_main <- head(ord, max_labels)
-    keep <- sort(unique(c(keep_main, which(is_root))))
+    
+    # make sure roots always have some text
     missing_root_txt <- (is.na(txt) | !nzchar(txt)) & is_root
     txt[missing_root_txt] <- nodes$item[missing_root_txt]
     
+    # selection:
+    # - max_labels <= 0  -> show ONLY roots
+    # - else             -> top-N by radius PLUS all roots
+    if (isTRUE(max_labels <= 0)) {
+      keep <- which(is_root)
+    } else {
+      ord <- order(nodes$radius, decreasing = TRUE)
+      keep_main <- head(ord, max_labels)
+      keep <- sort(unique(c(keep_main, which(is_root))))
+    }
+    
+    # place labels using the already-stacked y positions
+    y_label <- y_draw - nodes$radius * label_offset
+    
+    # optional color override (vector or scalar); default to node colors
+    lbl_cols <- if (!is.null(label_color)) {
+      if (length(label_color) == 1L) rep(label_color, nrow(nodes)) else label_color
+    } else {
+      node_cols
+    }
+    
+    # draw labels in front of geometry
     rgl::material3d(depth_test = "always")
     rgl::text3d(
       x = nodes$x[keep],
-      y = y_draw[keep] - nodes$radius[keep] * label_offset,
+      y = y_label[keep],
       z = nodes$z[keep],
       texts     = txt[keep],
       cex       = label_cex,
-      color     = node_cols[keep],
+      color     = lbl_cols[keep],
       fixedSize = TRUE,
       adj       = c(0.5, 1)
     )
     rgl::material3d(depth_test = "less")
   }
+  
   
   rgl::par3d(skipRedraw = FALSE)
   
