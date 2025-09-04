@@ -91,4 +91,7 @@ niarules::render_coral_rgl(
   y_scale = 0.15, jitter_sd = 0.015, jitter_mode = "deterministic"
 )
 
-if (isTRUE(getOption("rgl.useNULL"))) rgl::rglwidget() #if rgl somehow got into null device state
+rgl::view3d(theta = -32, phi = 16, fov = 22, zoom = 0.95)
+rgl::par3d(antialias = 8)
+
+rgl::rgl.snapshot("test3.png", fmt = "png", top = TRUE)

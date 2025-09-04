@@ -19,6 +19,9 @@ render_coral_rgl(
   theme = c("default", "studio", "flat", "dark", "none"),
   theme_overrides = NULL,
   apply_theme = TRUE,
+  edge_width_domain = NULL,
+  edge_color_domain = NULL,
+  edge_alpha_domain = NULL,
   edge_width_metric = c("confidence", "lift", "support"),
   edge_color_metric = c("confidence", "lift", "support"),
   edge_alpha_metric = NULL,
@@ -32,6 +35,8 @@ render_coral_rgl(
   node_color_by = c("type", "item", "none", "edge_incoming", "edge_outgoing_mean"),
   node_gradient = "match",
   node_gradient_map = c("even", "hash", "frequency"),
+  radial_expand = 1,
+  radial_gamma = 1,
   y_scale = 0,
   jitter_sd = 0,
   jitter_mode = c("deterministic", "random"),
@@ -45,15 +50,16 @@ render_coral_rgl(
 `feature`, `step`, `interval_label`, `interval_label_short`.}
 
 \item{edges}{data.frame; typically `build_coral_layout()$edges`. Must contain
-`x`, `y`, `z`, `x_end`, `y_end`, `z_end`, `parent_path`, `child_path`,
-and metric columns `support`, `confidence`, `lift`.}
+`parent_path`, `child_path`, and metric columns `support`, `confidence`, `lift`.
+Endpoint columns are ignored if present and will be recomputed.}
 
 \item{grid_size}{integer; the layout grid size (usually `build_coral_layout()$grid_size`).}
 
-\item{grid_outline}{Logical; if `TRUE` draws the reference grid/guide (using `grid_color`
+\item{grid_outline}{logical; if `TRUE` draws the reference grid/guide (using `grid_color`
 or the theme’s grid color). Defaults to `FALSE` for clean screenshots.}
 
-\item{grid_color}{background grid color. Any R color spec. Default `"grey80"`.}
+\item{grid_color}{color for the grid (if `grid_outline = TRUE`). If missing, the active
+theme’s grid color is used. Default `"grey92"`.}
 
 \item{legend}{logical; draw a node legend keyed by base feature (`nodes$feature`).
 Requires that `nodes$feature` and node colors are available. Default `FALSE`.}
@@ -67,11 +73,11 @@ Controls label text: interval labels, item labels, or no labels.}
 to labels (positive values move labels downward from sphere tops). Default `1.5`.}
 
 \item{max_labels}{integer; maximum number of non-root labels (largest radii first).
-Root nodes are always kept. If <= 0, only root (RHS) labels are drawn.}
+Root nodes are always kept. If `<= 0`, only root (RHS) labels are drawn.}
 
-\item{label_color}{NULL to color labels like their nodes, or a single color / vector to override.}
+\item{label_color}{`NULL` to color labels like their nodes, or a single color / vector to override.}
 
-\item{theme}{Character string; one of `"default"`, `"studio"`, `"flat"`, `"dark"`, `"none"`.
+\item{theme}{character; one of `"default"`, `"studio"`, `"flat"`, `"dark"`, `"none"`.
 Selects a preset for lights, materials, and background:
 - **default**: balanced lighting with subtle specular highlights.
 - **studio**: brighter, glossy look for screenshots.
@@ -79,15 +85,20 @@ Selects a preset for lights, materials, and background:
 - **dark**: dark background with rim lighting.
 - **none**: no lights configured (use existing rgl state/ambient).}
 
-\item{theme_overrides}{Optional named list to partially override the selected theme.
-Supported keys: `background` (color), `grid_color` (color), 
+\item{theme_overrides}{optional named list to partially override the selected theme.
+Supported keys: `background` (color), `grid_color` (color),
 `materials` (list with sublists `nodes`, `edges`, `labels` — each passed to
 [rgl::material3d()]), and `lights` (list of argument lists for [rgl::light3d()]).
 Example: `list(lights = list(list(theta = 60, phi = 30)))`.}
 
-\item{apply_theme}{Logical; if `TRUE` (default) the theme is applied at the start of rendering
+\item{apply_theme}{logical; if `TRUE` (default) the theme is applied at the start of rendering
 (background, lights, global/material defaults). Set to `FALSE` to keep the current rgl device
 state (useful when you configure lights/materials once for batch rendering).}
+
+\item{edge_width_domain, edge_color_domain, edge_alpha_domain}{optional numeric length-2 vectors giving the global domain (min, max)
+to use when scaling the respective metric. If `NULL` (default),
+the domain is computed from the provided `edges`. Use these to enforce
+consistent scaling across multiple plots (e.g., faceting).}
 
 \item{edge_width_metric}{character; which metric to map to edge **width**.
 One of `"confidence"`, `"lift"`, `"support"`. Default `"confidence"`.}
@@ -113,7 +124,7 @@ metric in `[0,1]`. One of `"linear"`, `"sqrt"`, `"log"`. Default `"linear"`.}
 metric in `[0,1]`. One of `"linear"`, `"sqrt"`, `"log"`. Default `"linear"`.}
 
 \item{edge_alpha}{numeric in `[0,1]`; constant alpha used **only when**
-`edge_alpha_metric` is `NULL`. Default `0.6`.}
+`edge_alpha_metric` is `NULL`. Default `0.5`.}
 
 \item{edge_alpha_range}{numeric length-2 in `[0,1]`; min/max alpha used **only when**
 `edge_alpha_metric` is not `NULL`. Default `c(0.25, 0.5)`.}
@@ -123,11 +134,11 @@ metric in `[0,1]`. One of `"linear"`, `"sqrt"`, `"log"`. Default `"linear"`.}
 
 \item{node_color_by}{one of `"type"`, `"item"`, `"none"`, `"edge_incoming"`, `"edge_outgoing_mean"`.
 Controls node coloring:
-- `"type"` colors by `nodes$feature` (recommended).
+- `"type"` colors by `nodes$feature`.
 - `"item"` colors by `nodes$item`.
-- `"none"` leaves default colors.
-- `"edge_incoming"` / `"edge_outgoing_mean"` are reserved for future use.
-**Note:** current implementation applies custom colors only for `"type"` and `"item"`.
+- `"none"` leaves existing/implicit colors.
+- `"edge_incoming"` uses the mean of incoming edges’ normalized color metric (`t_color_norm`).
+- `"edge_outgoing_mean"` uses the mean of outgoing edges’ normalized color metric.
 Default `"type"`.}
 
 \item{node_gradient}{either the string `"match"` to reuse `edge_gradient` for nodes,
@@ -136,9 +147,16 @@ or a character vector (>= 2) of colors to build the node palette. Default `"matc
 \item{node_gradient_map}{one of `"even"`, `"hash"`, `"frequency"`; how unique labels are
 placed along the gradient:
 - `"even"`: evenly spaced by sorted unique label order,
-- `"hash"`: stable per-label positions via a lightweight hash (good for reproducibility),
+- `"hash"`: stable per-label positions via a lightweight hash (reproducible),
 - `"frequency"`: labels ordered by frequency (most frequent near one end).
 Default `"even"`.}
+
+\item{radial_expand}{numeric; global expand/contract factor applied radially
+from each plot center. `1` = no change; `>1` pushes nodes outward. Default `1`.}
+
+\item{radial_gamma}{numeric; curvature of the radial remap. `1` = linear,
+`>1` separates outer rings (more spacing near the edge), `<1` compresses them.
+Default `1`.}
 
 \item{y_scale}{numeric scalar; vertical scale factor applied to each node’s normalized
 radial distance from its local center (`x_offset`,`z_offset`). `0` keeps the
@@ -161,10 +179,9 @@ still created. Default `FALSE`.}
 \value{
 Invisibly returns `NULL` after drawing. If `return_data = TRUE`, returns (invisibly)
 a list with components:
-- `nodes`: input `nodes` with added columns `y`, `color` (and possibly stacked
-  draw positions for roots),
-- `edges`: input `edges` with added columns `width`, `color`, `t_color_norm`,
-  `y`, `y_end`, and `width_binned`.
+- `nodes`: input `nodes` with added columns like `y` (base elevation) and `color`.
+- `edges`: input `edges` with added columns `width`, `color`, `alpha`, `t_color_norm`,
+  `y`, `y_end`, `width_binned`, `alpha_binned`.
 }
 \description{
 Renders a 3D "coral" plot produced by `build_coral_layout()`, with
@@ -173,8 +190,8 @@ colors derived from item/type groupings. The function draws a floor grid,
 edges as 3D segments, nodes as spheres, and optional labels/legend.
 
 **Required columns**
-- `edges`: `x`, `y`, `z`, `x_end`, `y_end`, `z_end`,
-  `parent_path`, `child_path`, and metric columns `support`, `confidence`, `lift`.
+- `edges`: `parent_path`, `child_path`, and metric columns `support`, `confidence`, `lift`.
+  (Endpoint coordinates `x`, `y`, `z`, `x_end`, `y_end`, `z_end` are recomputed by this function.)
 - `nodes`: `x`, `z`, `x_offset`, `z_offset`, `radius`, `path`.
 
 **Optional columns**
@@ -183,7 +200,7 @@ edges as 3D segments, nodes as spheres, and optional labels/legend.
   `nodes$interval_label`, `nodes$interval_label_short` (label text when requested).
 }
 \details{
-Metric scaling uses the helper `.norm_metric()` which:
+Metric scaling uses a helper that:
 1) rescales the chosen metric to `[0,1]` over finite values, and
 2) applies the selected transform:
    - `"linear"`: identity,
@@ -193,7 +210,7 @@ Metric scaling uses the helper `.norm_metric()` which:
 Node elevation (`y`) is computed as `y_scale * r_norm` where `r_norm` is the node’s
 radial distance from its center normalized to the max within that coral. Optional jitter
 is added (fading to zero at the center). Root nodes (`step == 0`) that overlap are
-vertically stacked with small stems for readability.
+vertically stacked (with small stems drawn). Labels are rendered on top of geometry.
 }
 \section{Requirements}{
 
@@ -201,3 +218,6 @@ Requires an interactive OpenGL device (`rgl`). On headless systems, consider
 using an off-screen context or skipping examples.
 }
 
+\seealso{
+[rgl::material3d()], [rgl::light3d()]
+}
