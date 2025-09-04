@@ -213,7 +213,7 @@ render_coral_rgl <- function(
     a  <- edge_alpha_range[1] + ta * (edge_alpha_range[2] - edge_alpha_range[1])
   }
   a <- pmin(pmax(a, 0), 1)
-  edges$color <- grDevices::rgb(rgb[,1]/255, rgb[,2]/255, rgb[,3]/255, alpha = 0.1, maxColorValue = 1)
+  edges$color <- grDevices::rgb(rgb[,1]/255, rgb[,2]/255, rgb[,3]/255, alpha = a, maxColorValue = 1)
   edges$alpha <- a
   edges$t_color_norm <- tc
   
@@ -353,8 +353,10 @@ render_coral_rgl <- function(
     styles <- unique(edges[c("width_binned","alpha_binned","color")])
     for (i in seq_len(nrow(styles))) {
       st <- styles[i, ]
-      idx <- edges$width_binned == st$width_binned & edges$alpha_binned == st$alpha_binned & edges$color == st$color
-      sub <- edges[idx, , drop = FALSE]
+      edge_idx <- edges$width_binned == st$width_binned &
+        edges$alpha_binned == st$alpha_binned &
+        edges$color == st$color
+      sub <- edges[edge_idx, , drop = FALSE]
       coords <- as.numeric(t(cbind(sub$x, sub$y, sub$z, sub$x_end, sub$y_end, sub$z_end)))
       rgl::segments3d(coords, color = st$color, alpha = st$alpha_binned,
                       lwd = st$width_binned, depth_mask = FALSE)
@@ -373,7 +375,7 @@ render_coral_rgl <- function(
     }
     ord <- order(nodes$radius, decreasing = TRUE)
     keep_main <- head(ord, max_labels)
-    keep <- sort(unique(c(keep_main, idx)))
+    keep <- sort(unique(c(keep_main, which(is_root))))
     missing_root_txt <- (is.na(txt) | !nzchar(txt)) & is_root
     txt[missing_root_txt] <- nodes$item[missing_root_txt]
     
