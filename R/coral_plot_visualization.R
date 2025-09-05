@@ -161,6 +161,12 @@ render_coral_rgl <- function(
     grid_color   = "grey92",
     
     legend       = FALSE,
+    legend_style   = c("auto","feature","grouped"),
+    legend_cex     = 1.0,
+    legend_pos     = c("inside_right","topright","topleft","custom"),
+    legend_items_per_feature = 6L,
+    legend_features_max      = 10L,
+    legend_xy      = c(0.92, 0.96),
     
     label_mode   = c("none", "interval", "item", "interval_short"),
     label_cex    = 0.7,
@@ -212,6 +218,17 @@ render_coral_rgl <- function(
   th <- coral_get_theme(theme, theme_overrides)
   if (missing(grid_color) && !is.null(th$grid_color)) grid_color <- th$grid_color
   if (isTRUE(apply_theme)) coral_apply_theme(th)
+  
+  # Use the formals directly (you declared them in the signature)
+  legend_style <- match.arg(legend_style)
+  legend_pos   <- match.arg(legend_pos)
+  
+  # Coerce / validate the numeric ones
+  legend_cex <- as.numeric(legend_cex)
+  legend_items_per_feature <- as.integer(legend_items_per_feature)
+  legend_features_max      <- as.integer(legend_features_max)
+  legend_xy <- as.numeric(legend_xy)
+  if (length(legend_xy) != 2L) stop("legend_xy must be a length-2 numeric vector.")
   
   label_mode           <- match.arg(label_mode)
   node_color_by     <- match.arg(node_color_by)
@@ -519,19 +536,102 @@ render_coral_rgl <- function(
   
   rgl::par3d(skipRedraw = FALSE)
   
-  if (legend && "color" %in% names(nodes)) {
-    if (!"feature" %in% names(nodes)) stop("nodes$feature missing; legend needs base feature names.")
-    legend_df <- unique(nodes[c("feature","color")])
-    names(legend_df) <- c("label","color")
-    if (nrow(legend_df) > 0) {
-      rgl::bgplot3d({
-        op <- par(mar = c(0,0,0,0))
-        plot.new()
-        legend("topright", legend = legend_df$label, fill = legend_df$color,
-               border = NA, bty = "n", cex = 0.8)
-        par(op)
-      })
-    }
+  if (isTRUE(legend) && "color" %in% names(nodes)) {
+    .dedupe <- function(df, cols) df[!duplicated(df[cols]), cols, drop = FALSE]
+    # auto: choose "feature" when coloring by type; otherwise "grouped"
+    if (legend_style == "auto")
+      legend_style <- if (identical(node_color_by, "type")) "feature" else "grouped"
+    
+    rgl::bgplot3d({
+      op <- par(mar = c(0,0,0,0)); on.exit(par(op), add = TRUE)
+      plot.new()
+      
+      # anchor (normalized device coords)
+      anchor <- switch(legend_pos,
+                       inside_right = c(0.92, 0.96),
+                       topright     = c(0.98, 0.98),
+                       topleft      = c(0.02, 0.98),
+                       custom       = legend_xy
+      )
+      x_right <- anchor[1]
+      y_top   <- anchor[2]
+      
+      # panel box for readability
+      panel_w <- 0.28
+      panel_h <- 0.88
+      rect(x_right - panel_w, y_top - panel_h, x_right, y_top,
+           col = rgb(1,1,1,0.88), border = NA, xpd = NA)
+      
+      line_h <- strheight("M") * 1.25 * legend_cex
+      x_sw   <- x_right - 0.025
+      x_txt  <- x_right - 0.030
+      y      <- y_top - line_h * 0.5
+      
+      if (legend_style == "feature") {
+        stopifnot("feature" %in% names(nodes))
+        L <- .dedupe(nodes, c("feature","color"))
+        L <- L[order(L$feature), , drop = FALSE]
+        # two columns if many
+        n <- nrow(L); cols <- if (n > 12) 2L else 1L
+        per_col <- ceiling(n / cols)
+        col_w <- panel_w / cols
+        
+        k <- 1L
+        for (cix in seq_len(cols)) {
+          y <- y_top - line_h * 0.5
+          x_col_right <- x_right - (cix - 1) * col_w
+          x_sw   <- x_col_right - 0.025
+          x_txt  <- x_col_right - 0.030
+          for (i in seq_len(per_col)) {
+            if (k > n) break
+            rect(xleft = x_sw, ybottom = y - line_h * 0.6,
+                 xright = x_col_right - 0.005, ytop = y - line_h * 0.15,
+                 col = L$color[k], border = NA, xpd = NA)
+            text(x_txt, y - line_h * 0.38, labels = L$feature[k],
+                 cex = 0.85 * legend_cex, adj = c(1, 0.5))
+            y <- y - line_h
+            k <- k + 1L
+          }
+        }
+        
+      } else {  # legend_style == "grouped"
+        need <- c("feature","item","color")
+        if (!all(need %in% names(nodes))) stop("nodes must have columns: feature, item, color")
+        df <- .dedupe(nodes, need)
+        df <- df[order(df$feature, df$item), , drop = FALSE]
+        split_by_feat <- split(df, df$feature, drop = TRUE)
+        # order features by how many items we can show (desc), then alpha
+        cnt <- vapply(split_by_feat, nrow, integer(1))
+        nm  <- names(split_by_feat)
+        ord <- order(-cnt, nm)
+        split_by_feat <- split_by_feat[ord]
+        if (length(split_by_feat) > legend_features_max) {
+          split_by_feat <- split_by_feat[seq_len(legend_features_max)]
+        }
+        # draw
+        for (feat in names(split_by_feat)) {
+          text(x_txt, y, labels = feat, cex = 0.95 * legend_cex, adj = c(1, 1), font = 2)
+          y <- y - line_h
+          d <- head(split_by_feat[[feat]], legend_items_per_feature)
+          for (i in seq_len(nrow(d))) {
+            rect(xleft = x_sw, ybottom = y - line_h * 0.6,
+                 xright = x_right - 0.005, ytop = y - line_h * 0.15,
+                 col = d$color[i], border = NA, xpd = NA)
+            # prefer a short interval label if available
+            lab <- d$item[i]
+            if ("interval_label_short" %in% names(nodes)) {
+              alt <- nodes$interval_label_short[match(lab, nodes$item)]
+              if (length(alt) && !is.na(alt[1]) && nzchar(alt[1])) lab <- alt[1]
+            }
+            text(x_txt, y - line_h * 0.38, labels = lab, cex = 0.80 * legend_cex, adj = c(1, 0.5))
+            y <- y - line_h
+            if (y < 0.06) break
+          }
+          y <- y - line_h * 0.4
+          if (y < 0.06) break
+        }
+      }
+    })
   }
   
   if (return_data) return(invisible(list(nodes = nodes, edges = edges)))

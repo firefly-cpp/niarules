@@ -1,61 +1,50 @@
 library(readr)
 library(arules)
 library(arulesCBA)
+library(niarules)
 
 set.seed(1248)
 
-abalone <- read_csv(
-  "inst/extdata/Abalone.csv",
-  col_names = c("Sex","Length","Diameter","Height",
-                "WholeWeight","ShuckedWeight","VisceraWeight",
-                "ShellWeight","Rings"),
-  show_col_types = FALSE
-)
+# --- data -----------------------------------------------------------------
+path <- system.file("extdata", "Abalone.csv", package = "niarules")
+abalone <- readr::read_csv(path, show_col_types = FALSE)
+names(abalone) <- c("Sex","Length","Diameter","Height",
+                    "WholeWeight","ShuckedWeight","VisceraWeight",
+                    "ShellWeight","Rings")
 abalone$Sex   <- factor(abalone$Sex)
 abalone$Rings <- factor(abalone$Rings)
 
-# supervised discretization (w.r.t. Rings)
+# supervised discretization w.r.t. Rings
 disc <- discretizeDF.supervised(Rings ~ ., abalone)
 
 # transactions restricted to predicting Rings=*
 trans <- as(disc, "transactions")
 rhs_labels <- grep("^Rings=", itemLabels(trans), value = TRUE)
 
-# mine rules
+# --- mine -----------------------------------------------------------------
 rules <- apriori(
   trans,
-  parameter = list(
-    supp   = 5e-4,
-    conf   = 0.4,
-    minlen = 2,
-    maxlen = 9
-  ),
+  parameter = list(supp = 5e-4, conf = 0.4, minlen = 2, maxlen = 9),
   appearance = list(rhs = rhs_labels, default = "lhs"),
-  control    = list(verbose = FALSE)
+  control = list(verbose = FALSE)
 )
+stopifnot(length(rules) > 0L)
 
-if (length(rules) == 0L) stop("No rules mined with current thresholds.")
-
-# choose a RHS to showcase
-requested_rhs <- "Rings=23"  # try any; will fall back if absent
-
+# choose a RHS to showcase (fallback to most frequent)
+requested_rhs <- "Rings=23"
 rhs_str <- labels(rhs(rules))
 if (!requested_rhs %in% rhs_str) {
-  # Pick the RHS with the most rules (richest coral)
   rhs_counts <- sort(table(rhs_str), decreasing = TRUE)
   requested_rhs <- names(rhs_counts)[1]
   message("Requested RHS not found; using most frequent RHS: ", requested_rhs)
 }
 
+# balance within LHS-length buckets (top-k by lift/conf inside each length)
 r <- rules[rhs_str == requested_rhs]
-if (length(r) == 0L) stop("Selected RHS produced zero rules.")
-
-# rank within LHS length buckets and keep top-k per length
 q <- quality(r)
 lhs_len <- size(lhs(r))
 split_len <- split(seq_along(r), lhs_len)
-
-k_per_len <- 50          # tune: more/less density
+k_per_len <- 50
 keep_idx <- integer()
 for (L in sort(unique(lhs_len))) {
   ids <- split_len[[as.character(L)]]
@@ -65,122 +54,38 @@ for (L in sort(unique(lhs_len))) {
   }
 }
 r_balanced <- unique(r[keep_idx])
+stopifnot(length(r_balanced) > 0L)
 
-# make one RHS label per rule (optionally ignore order)
-rhs_label_per_rule <- function(parsed, ignore_order = TRUE) {
-  stopifnot(is.list(parsed), all(c("items","rules") %in% names(parsed)))
-  lab_by_id <- setNames(parsed$items$label, parsed$items$item_id)
-  
-  vapply(seq_len(nrow(parsed$rules)), function(i) {
-    ids <- unlist(parsed$rules$rhs_item_ids[[i]], use.names = FALSE)
-    if (!length(ids)) return("")
-    labs <- lab_by_id[as.character(ids)]
-    if (ignore_order) labs <- sort(labs)
-    paste(labs, collapse = ", ")
-  }, character(1))
-}
-
-# build one composite RHS label per rule (optionally ignoring item order)
-rhs_label_per_rule <- function(parsed, ignore_order = TRUE) {
-  stopifnot(is.list(parsed), all(c("items","rules") %in% names(parsed)))
-  lab_by_id <- setNames(parsed$items$label, parsed$items$item_id)
-  
-  vapply(seq_len(nrow(parsed$rules)), function(i) {
-    ids <- unlist(parsed$rules$rhs_item_ids[[i]], use.names = FALSE)
-    if (!length(ids)) return("")
-    labs <- lab_by_id[as.character(ids)]
-    if (ignore_order) labs <- sort(labs)
-    paste(labs, collapse = ", ")
-  }, character(1))
-}
-
-# filter a parsed ruleset to a single RHS label; drops unused items and remaps item_id
-filter_parsed_by_rhs <- function(parsed, rhs_label, ignore_order = TRUE) {
-  stopifnot(is.list(parsed), all(c("items","rules") %in% names(parsed)))
-  items <- parsed$items
-  rules <- parsed$rules
-  
-  # compute per-rule RHS label
-  rule_lab <- rhs_label_per_rule(parsed, ignore_order = ignore_order)
-  
-  keep <- rule_lab == rhs_label
-  rules2 <- rules[keep, , drop = FALSE]
-  if (nrow(rules2) == 0L) {
-    stop("No rules match RHS label: ", rhs_label, call. = FALSE)
-  }
-  
-  # collect used item_ids
-  used_ids <- sort(unique(c(
-    unlist(rules2$lhs_item_ids, use.names = FALSE),
-    unlist(rules2$rhs_item_ids, use.names = FALSE)
-  )))
-  
-  # remap item_id to 0..(k-1)
-  id_map <- setNames(seq_along(used_ids) - 1L, as.character(used_ids))
-  
-  items2 <- items[items$item_id %in% used_ids, , drop = FALSE]
-  items2$item_id <- unname(id_map[as.character(items2$item_id)])
-  rownames(items2) <- NULL
-  
-  remap_list_ids <- function(lst) {
-    lapply(seq_along(lst), function(i) {
-      v <- unlist(lst[[i]], use.names = FALSE)
-      if (!length(v)) integer()
-      else unname(as.integer(id_map[as.character(v)]))
-    })
-  }
-  
-  rules2$lhs_item_ids <- remap_list_ids(rules2$lhs_item_ids)
-  rules2$rhs_item_ids <- remap_list_ids(rules2$rhs_item_ids)
-  class(rules2$lhs_item_ids) <- "AsIs"
-  class(rules2$rhs_item_ids) <- "AsIs"
-  rownames(rules2) <- NULL
-  
-  list(items = items2, rules = rules2)
-}
-
+# --- build parse df (no CSV) ----------------------------------------------
 df <- data.frame(
   Antecedent  = sub("^\\{(.*)\\}$", "\\1", labels(lhs(r_balanced))),  # strip {}
   Consequence = sub("^\\{(.*)\\}$", "\\1", labels(rhs(r_balanced))),
   Support     = as.numeric(quality(r_balanced)$support),
   Confidence  = as.numeric(quality(r_balanced)$confidence),
-  Fitness     = as.numeric(quality(r_balanced)$lift),
-  stringsAsFactors = FALSE
+  Fitness     = as.numeric(quality(r_balanced)$lift),                  # use Lift name
+  check.names = FALSE
 )
+parsed <- niarules::parse_rules(df)
 
-parsed  <- niarules::parse_rules(df)
-# choose a RHS with both rings and branches
-rhs_label <- rhs_label_per_rule(parsed, ignore_order = TRUE)
-
-# score each RHS by how branchy it looks (more long LHS)
-df_rules <- data.frame(rhs_label = rhs_label,
+# pick the “branchiest” RHS among those present (same scoring as before)
+rhs_lab <- niarules::rhs_label_per_rule(parsed, ignore_order = TRUE)
+df_rules <- data.frame(rhs_label = rhs_lab,
                        len = parsed$rules$antecedent_length,
                        stringsAsFactors = FALSE)
-
 scores_list <- by(df_rules$len, df_rules$rhs_label, function(v) {
-  c(n = length(v),
-    mean_len = mean(v),
-    share_len3 = mean(v >= 3))
+  c(n = length(v), mean_len = mean(v), share_len3 = mean(v >= 3))
 })
-scores <- do.call(rbind, scores_list)
-scores <- as.data.frame(scores)
+scores <- as.data.frame(do.call(rbind, scores_list))
 scores$rhs_label <- rownames(scores)
+pick <- scores$rhs_label[order(scores$share_len3, scores$n, decreasing = TRUE)][1]
 
-# pick RHS with highest share of len>=3 (break ties by n)
-ord <- order(scores$share_len3, scores$n, decreasing = TRUE)
-pick <- scores$rhs_label[ord][1]
-
-parsed_one <- filter_parsed_by_rhs(parsed, rhs_label = pick, ignore_order = TRUE)
+parsed_one <- niarules::filter_parsed_by_rhs(parsed, rhs_label = pick, ignore_order = TRUE)
 layout     <- niarules::build_coral_plots(parsed_one, lhs_sort_metric = "confidence")
 
+# local domains straight from edges via helper
+dom <- niarules::metric_domains(layout$edges)
 
-# local domains for punchy contrast
-dom <- list(
-  confidence = range(layout$edges$confidence, finite = TRUE),
-  support    = range(layout$edges$support,    finite = TRUE),
-  lift       = range(layout$edges$lift,       finite = TRUE)
-)
-
+# --- render ----------------------------------------------------------------
 niarules::render_coral_rgl(
   layout$nodes, layout$edges, layout$grid_size,
   label_mode   = "item", max_labels = 0, label_color = "grey20",
@@ -198,7 +103,6 @@ niarules::render_coral_rgl(
   node_color_by        = "item",
   y_scale = 0.18, jitter_sd = 0.012, jitter_mode = "random", jitter_seed = 1248,
   radial_expand = 1.35, radial_gamma = 1.45
-  #node_radius_scale = 0.97, node_alpha_by_depth = TRUE
 )
 
 rgl::view3d(theta = -32, phi = 16, fov = 22, zoom = 0.95)
