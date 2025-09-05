@@ -16,28 +16,48 @@ suppressPackageStartupMessages({
 # null-coalescing helper (used below)
 `%||%` <- function(a, b) if (!is.null(a)) a else b
 
+Sys.setenv(OMP_NUM_THREADS = "1", MKL_NUM_THREADS = "1")
+if (requireNamespace("RhpcBLASctl", quietly=TRUE)) RhpcBLASctl::blas_set_num_threads(1)
+
 # ----------------------- Config ------------------------------
-set.seed(1248)
+# Reproducible, parallel-safe RNG
+RNGkind("L'Ecuyer-CMRG")
+MASTER_SEED <- 1248
+set.seed(MASTER_SEED)
 
 # Data
 data_raw <- niarules::read_dataset(system.file("extdata","Abalone.csv", package = "niarules"))
 data_raw$Rings <- factor(as.integer(data_raw$Rings))
+# After: data_raw$Rings <- factor(as.integer(data_raw$Rings))
+ring_freq <- sort(table(as.integer(data_raw$Rings)), decreasing = TRUE)
 
-# Targets (integers present in the data)
-RINGS_VALUES <- sort(unique(as.integer(data_raw$Rings)))
+# Focus on frequent rings first – pick one of these knobs if you want:
+TOP_K_RINGS   <- 6      # e.g., keep top 8 most common ring values
+MIN_RING_COUNT<- NULL   # or set a minimum count, e.g., 80
+
+if (!is.null(TOP_K_RINGS)) {
+  keep_vals <- as.integer(names(ring_freq)[seq_len(min(TOP_K_RINGS, length(ring_freq)))])
+} else if (!is.null(MIN_RING_COUNT)) {
+  keep_vals <- as.integer(names(ring_freq[ring_freq >= MIN_RING_COUNT]))
+} else {
+  keep_vals <- as.integer(names(ring_freq))
+}
+RINGS_VALUES <- sort(unique(keep_vals))
+
+cat("Targeting ring values (by frequency):", paste(RINGS_VALUES, collapse=", "), "\n")
 
 # Quota per integer RHS (start small for quick testing)
-QUOTA_PER_VALUE <- 2L
+QUOTA_PER_VALUE <- 40L
 
 # Mining params (short runs; tweak as needed)
-NP        <- 18L
-NFES      <- 360L
+NP        <- 12L
+NFES      <- 180L
 F_MUT     <- 0.60
 CR        <- 0.90
 
 # Parallel + batch setup
 WORKERS        <- max(1L, parallel::detectCores() - 1L)
-SEEDS_PER_BATCH<- 8L                           # parallel jobs per batch
+SEEDS_PER_BATCH<- 4L                           # parallel jobs per batch
 MAX_BATCHES    <- 200L                         # hard stop
 CHECKPOINT_CSV <- "harvest_rules.csv"
 
@@ -47,8 +67,8 @@ MIN_CONF       <- 0.00                         # set higher if you want
 MIN_SUPP       <- 0.00                         # set higher if you want
 
 # Bootstrapping
-BOOTSTRAP_SIZE <- nrow(data_raw)               # same size as dataset
-POS_FRACTION   <- 0.67                         # ~ 2/3 from the target Rings=v
+OOTSTRAP_SIZE <- min(nrow(data_raw), 1500L)               # same size as dataset
+POS_FRACTION   <- 0.9                        # ~ 2/3 from the target Rings=v
 
 # ---- Rings mapping behavior for numerical intervals on RHS ----
 # "split"   → replicate a rule for every integer overlapped by the interval
@@ -56,6 +76,8 @@ POS_FRACTION   <- 0.67                         # ~ 2/3 from the target Rings=v
 # "strict"  → only keep if span <= 1 and midpoint is within tolerance of an integer
 RINGS_MAP_MODE   <- "split"   # "split" | "nearest" | "strict"
 RINGS_NEAREST_TOL<- 0.5       # used in "strict"
+
+batch_times <- numeric(0)
 
 # -------------------------------------------------------------
 # Helpers
@@ -83,7 +105,8 @@ pred_to_string <- function(p) {
   } else {
     b1 <- suppressWarnings(as.numeric(p$border1))
     b2 <- suppressWarnings(as.numeric(p$border2))
-    sprintf("%s∈[%.6g,%.6g]", p$name, b1, b2)
+    PRED_DIGITS <- 4
+    sprintf("%s∈[%.*f,%.*f]", p$name, PRED_DIGITS, b1, PRED_DIGITS, b2)
   }
 }
 
@@ -189,28 +212,34 @@ flatten_de_rules <- function(de_obj) {
   dplyr::bind_rows(out_list)
 }
 
-# ------- De-duplication key (keep your existing one if you like) -------
-rule_key <- function(lhs_str, rhs_str) {
-  lhs_core  <- sub("^\\{(.*)\\}$", "\\1", as.character(lhs_str))
-  lhs_items <- if (nzchar(lhs_core)) sort(strsplit(lhs_core, "\\s*,\\s*")[[1]]) else character(0)
-  paste0(paste(lhs_items, collapse = "|"), " => ", gsub("\\s+", "", as.character(rhs_str)))
+# ------- de-duplication
+split_outside_brackets <- function(s) {
+  if (!nzchar(s)) return(character(0))
+  res <- character(0); buf <- ""; depth <- 0L
+  for (ch in strsplit(s, "", fixed = TRUE)[[1]]) {
+    if (ch %in% c("[","(")) depth <- depth + 1L
+    else if (ch %in% c("]",")")) depth <- max(0L, depth - 1L)
+    if (depth == 0L && ch %in% c(",", "&")) {
+      part <- trimws(buf); if (nzchar(part)) res <- c(res, part); buf <- ""
+    } else buf <- paste0(buf, ch)
+  }
+  part <- trimws(buf); if (nzchar(part)) res <- c(res, part)
+  res
 }
 
-# Extract RHS integer if the consequence is Rings=integer
-#rhs_integer_if_rings <- function(cons_str) {
-#  cs <- gsub("[{}\\s]", "", as.character(cons_str))
-#  # typical patterns: "Rings=9"  or possibly "Rings==9"
-#  m <- regexec("(?i)^Rings=+([0-9]+)$", cs, perl = TRUE)
-#  reg <- regmatches(cs, m)
-#  v <- suppressWarnings(as.integer(vapply(reg, function(z) if (length(z) == 2) z[2] else NA_character_, "")))
-#  ifelse(is.na(v), NA_integer_, v)
-#}
+lhs_key <- function(lhs_str) {
+  lhs_core  <- sub("^\\{(.*)\\}$", "\\1", as.character(lhs_str))
+  items <- if (nzchar(lhs_core)) split_outside_brackets(lhs_core) else character(0)
+  paste(sort(items[nzchar(items)]), collapse = "|")
+}
+
+rule_key <- function(lhs_str, v) {
+  paste0(lhs_key(lhs_str), " | Rings=", v)
+}
 
 # Run one short DE on a given (bootstrapped) dataset
 mine_de_short <- function(df_boot, seed,
                           np = NP, nfes = NFES, f = F_MUT, cr = CR) {
-  # set the RNG for reproducibility per worker
-  set.seed(seed)
   
   features <- niarules::extract_feature_info(df_boot)
   d        <- niarules::problem_dimension(features, is_time_series = FALSE)
@@ -240,6 +269,13 @@ mine_de_short <- function(df_boot, seed,
 # Targeted anytime harvesting
 # -------------------------------------------------------------
 
+# Keep resource use conservative while we stabilize
+WORKERS <- min(WORKERS, 4L)             # cap workers (bump later if stable)
+options(future.globals.maxSize = 1e9)   # 1 GB; raise if needed
+# Clean up from previous runs (avoids zombie workers)
+if ("ClusterRegistry" %in% ls(getNamespace("future"))) {
+  try(future:::ClusterRegistry("stop"), silent = TRUE)
+}
 plan(multisession, workers = WORKERS)
 
 quota <- setNames(rep(QUOTA_PER_VALUE, length(RINGS_VALUES)), RINGS_VALUES)
@@ -277,7 +313,7 @@ if (file.exists(CHECKPOINT_CSV)) {
         lapply(function(df) { kept[[as.character(df$v[1])]] <<- df; invisible(NULL) })
       # rebuild de-dup keys
       for (i in seq_len(nrow(old))) {
-        assign(rule_key(old$Antecedent[i], old$Consequence[i]), TRUE, envir = keys)
+        assign(rule_key(old$Antecedent[i], old$v[i]), TRUE, envir = keys)
       }
     }
   }
@@ -287,27 +323,43 @@ counts <- setNames(sapply(RINGS_VALUES, function(v) nrow(kept[[as.character(v)]]
 
 # simple utility
 below_quota <- function() {
-  setdiff(RINGS_VALUES[counts[RINGS_VALUES] < quota[as.character(RINGS_VALUES)]], integer(0))
+  need <- RINGS_VALUES[ counts[as.character(RINGS_VALUES)] < quota[as.character(RINGS_VALUES)] ]
+  setdiff(need, integer(0))
 }
 
 batch <- 0L
 while (length(below_quota()) && batch < MAX_BATCHES) {
+  batch_start <- Sys.time()
+  
   batch <- batch + 1L
   
   # pick the Rings value with largest deficit
   deficits <- quota - counts
-  target_v <- as.integer(names(deficits)[which.max(deficits)])
-  target_v <- if (length(target_v)) target_v else below_quota()[1]
+  candidates <- as.integer(names(deficits)[deficits > 0])
+  if (length(candidates)) {
+    # choose the candidate with the highest dataset frequency
+    freqs <- as.integer(ring_freq[as.character(candidates)])
+    target_v <- candidates[which.max(freqs)]
+  } else {
+    target_v <- NA_integer_
+  }
   
   # build a class-balanced bootstrap
   df_boot <- bootstrap_for_value(data_raw, v = target_v)
   
   # run a parallel batch of short DE runs
   seeds <- total_seeds_tried + seq_len(SEEDS_PER_BATCH)
-  res_list <- future_lapply(
-    seeds,
-    function(s) mine_de_short(df_boot, seed = s),
-    future.packages = c("niarules")
+  res_list <- tryCatch(
+    future_lapply(
+      seeds,
+      function(s) mine_de_short(df_boot, seed = s),
+      future.packages = c("niarules"),
+      future.seed = TRUE
+    ),
+    error = function(e) {
+      message("Parallel batch failed (", conditionMessage(e), "). Falling back to sequential for this batch.")
+      lapply(seeds, function(s) mine_de_short(df_boot, seed = s))
+    }
   )
   total_seeds_tried <- total_seeds_tried + length(seeds)
   
@@ -315,29 +367,44 @@ while (length(below_quota()) && batch < MAX_BATCHES) {
   cand <- bind_rows(res_list)
   cat("cand rules this batch:", nrow(cand), "\n")
   if (nrow(cand)) {
+    vtab <- sort(table(cand$v[!is.na(cand$v) & cand$v %in% RINGS_VALUES]), decreasing = TRUE)
+    if (length(vtab)) cat("Rings in batch (pre-filter):", paste(head(paste0(names(vtab), "=", as.integer(vtab)), 12), collapse=" | "), "\n")
+  }
+  if (nrow(cand)) {
     tab <- sort(table(cand$rhs_name), decreasing = TRUE)
     cat("Top RHS:", paste(head(paste0(names(tab), "=", as.integer(tab)), 8), collapse = " | "), "\n")
   }
   if (nrow(cand)) {
-    #cand$v <- rhs_integer_if_rings(cand$Consequence)
     cand <- cand %>%
       dplyr::filter(!is.na(v),
-                    v == target_v,
+                    v %in% RINGS_VALUES,
                     LHS_len >= LHS_MIN_LEN,
                     Support >= MIN_SUPP,
                     Confidence >= MIN_CONF)
     
     # de-duplicate and keep only new ones
     if (nrow(cand)) {
-      cand$key <- mapply(rule_key, cand$Antecedent, cand$Consequence, USE.NAMES = FALSE)
+      cand$key <- mapply(function(a, v) rule_key(a, v), cand$Antecedent, cand$v, USE.NAMES = FALSE)
       is_new <- !vapply(cand$key, exists, logical(1), envir = keys)
-      new_rules <- cand[is_new, setdiff(names(cand), c("key")), drop = FALSE]
+      # keep the key so we can collapse within-batch dups
+      new_rules <- cand[is_new, , drop = FALSE]
       
-      # register keys
       if (nrow(new_rules)) {
-        invisible(mapply(function(k) assign(k, TRUE, envir = keys), cand$key[is_new]))
-        kept_key <- as.character(target_v)
-        kept[[kept_key]] <- bind_rows(kept[[kept_key]], new_rules)
+        # collapse any within-batch duplicates (same LHS set + v) by best Fitness/Confidence/Support
+        new_rules <- new_rules |>
+          dplyr::group_by(key) |>
+          dplyr::slice_max(order_by = dplyr::coalesce(Fitness, Confidence, Support),
+                           n = 1, with_ties = FALSE) |>
+          dplyr::ungroup()
+        
+        # register keys so future batches recognize these as seen
+        invisible(vapply(new_rules$key, function(k) { assign(k, TRUE, envir = keys); TRUE }, logical(1)))
+        
+        # append to per-ring buckets
+        by_v <- split(new_rules, new_rules$v)
+        for (vk in names(by_v)) {
+          kept[[vk]] <- dplyr::bind_rows(kept[[vk]], by_v[[vk]])
+        }
       }
     }
   }
@@ -350,11 +417,157 @@ while (length(below_quota()) && batch < MAX_BATCHES) {
   }
   
   # periodic log
-  status <- paste(sprintf("%d:%d", RINGS_VALUES, counts), collapse = "  ")
+  ordered_counts <- counts[as.character(RINGS_VALUES)]
+  status <- paste(sprintf("%d:%d", RINGS_VALUES, ordered_counts), collapse = "  ")
+  
+  elapsed  <- as.numeric(difftime(Sys.time(), batch_start, units = "secs"))
+  batch_times <- c(batch_times, elapsed)
+  ma5 <- mean(tail(batch_times, 5))
+  
+  cand_n <- if (exists("cand") && is.data.frame(cand)) nrow(cand) else 0
+  cps    <- if (elapsed > 0) cand_n / elapsed else NA
+  
   msg <- sprintf("[batch %03d] seeds tried: %d | targeting Rings=%d | rules per ring: %s",
                  batch, total_seeds_tried, target_v, status)
+  
+  msg <- paste0(
+    msg,
+    sprintf(" | batch_time=%.1fs | avg_last5=%.1fs | cand/s=%s",
+            elapsed, ma5, if (is.finite(cps)) sprintf("%.1f", cps) else "NA")
+  )
+  
   message(msg); flush.console()
 }
+
+# -------------------- POST-STEP: re-score on full data --------------------
+# This assumes:
+# - full data in: data_raw  (with data_raw$Rings as a factor of integers)
+# - harvested rules in: CHECKPOINT_CSV (with columns: Antecedent, Consequence, v, LHS_len, ...)
+
+# --- helpers to evaluate LHS strings on full data ---
+split_outside_brackets <- function(s) {
+  if (!nzchar(s)) return(character(0))
+  res <- character(0); buf <- ""; depth <- 0L
+  chars <- strsplit(s, "", fixed = TRUE)[[1]]
+  for (ch in chars) {
+    if (ch %in% c("[","(")) depth <- depth + 1L
+    else if (ch %in% c("]",")")) depth <- max(0L, depth - 1L)
+    if (depth == 0L && ch %in% c(",", "&")) {
+      part <- trimws(buf); if (nzchar(part)) res <- c(res, part); buf <- ""
+    } else {
+      buf <- paste0(buf, ch)
+    }
+  }
+  part <- trimws(buf); if (nzchar(part)) res <- c(res, part)
+  res
+}
+
+parse_items <- function(lhs_str) {
+  core <- sub("^\\{?\\s*(.*)\\s*\\}?$", "\\1", lhs_str)   # strip optional {}
+  if (!nzchar(core)) character(0) else split_outside_brackets(core)
+}
+
+mask_for_item <- function(item, df) {
+  s <- trimws(item)
+  
+  # 1) categorical equality: accept "==" or "="
+  m1 <- regexec("^([^=∈]+)\\s*={1,2}\\s*(.+)$", s, perl = TRUE)
+  rg1 <- regmatches(s, m1)[[1]]
+  if (length(rg1) == 3) {
+    name  <- trimws(rg1[2]); val <- trimws(rg1[3])
+    if (!name %in% names(df)) return(rep(TRUE, nrow(df)))
+    col <- df[[name]]
+    return(as.character(col) == val)
+  }
+  
+  # 2) numeric interval: Name∈[lo,hi] (inclusive)
+  m2 <- regexec("^([^=∈]+)∈\\[\\s*([^,\\]]+)\\s*,\\s*([^\\]]+)\\s*\\]$", s, perl = TRUE)
+  rg2 <- regmatches(s, m2)[[1]]
+  if (length(rg2) == 4) {
+    name <- trimws(rg2[2]); lo <- suppressWarnings(as.numeric(rg2[3])); hi <- suppressWarnings(as.numeric(rg2[4]))
+    if (!name %in% names(df) || !is.finite(lo) || !is.finite(hi)) return(rep(TRUE, nrow(df)))
+    col <- suppressWarnings(as.numeric(df[[name]]))
+    return(!is.na(col) & col >= min(lo,hi) & col <= max(lo,hi))
+  }
+  
+  # unrecognized predicate → neutral (TRUE)
+  rep(TRUE, nrow(df))
+}
+
+mask_for_lhs <- function(lhs_str, df) {
+  items <- parse_items(lhs_str)
+  if (!length(items)) return(rep(TRUE, nrow(df)))
+  ms <- lapply(items, mask_for_item, df = df)
+  Reduce(`&`, ms)
+}
+
+# --- compute full-data metrics for a data.frame of rules (has columns: Antecedent, v, ...) ---
+rescore_full_metrics <- function(rules_df, full_df) {
+  n <- nrow(full_df)
+  rings_int <- as.integer(full_df$Rings)
+  prior_tab <- table(rings_int)
+  pC <- function(v) as.numeric(prior_tab[as.character(v)] %||% 0) / n
+  
+  # precompute P(C) per distinct v to avoid redoing it
+  v_vals <- sort(unique(rules_df$v))
+  pC_map <- setNames(vapply(v_vals, pC, numeric(1)), v_vals)
+  
+  # evaluate rules
+  out <- rules_df
+  out$Support_full    <- NA_real_
+  out$Confidence_full <- NA_real_
+  out$Lift_full       <- NA_real_
+  
+  for (i in seq_len(nrow(rules_df))) {
+    lhs <- rules_df$Antecedent[i]
+    v   <- rules_df$v[i]
+    if (is.na(v)) next
+    
+    mA <- mask_for_lhs(lhs, full_df)
+    mC <- (as.integer(full_df$Rings) == v)
+    
+    nA  <- sum(mA)
+    nC  <- sum(mC)
+    nAC <- sum(mA & mC)
+    
+    supp <- nAC / n
+    conf <- if (nA > 0) nAC / nA else NA_real_
+    lift <- if (!is.na(conf) && (pC_map[as.character(v)] > 0)) conf / pC_map[as.character(v)] else NA_real_
+    
+    out$Support_full[i]    <- supp
+    out$Confidence_full[i] <- conf
+    out$Lift_full[i]       <- lift
+  }
+  out
+}
+
+
+# convenience wrapper
+rescore_file <- function(in_csv, out_csv = NULL, full_df = data_raw) {
+  rules_raw <- suppressMessages(readr::read_csv(in_csv, show_col_types = FALSE))
+  rescored  <- rescore_full_metrics(rules_raw, full_df)
+  out_csv   <- out_csv %||% sub("\\.csv$", "_full.csv", in_csv)
+  suppressMessages(readr::write_csv(rescored, out_csv))
+  message(sprintf("Re-scored on full data → %s (%d rules)", out_csv, nrow(rescored)))
+  invisible(rescored)
+}
+#rescore_file("harvest_rules.csv")
+
+# --- run the post-step on the current checkpoint ---
+if (file.exists(CHECKPOINT_CSV)) {
+  rules_raw <- suppressMessages(readr::read_csv(CHECKPOINT_CSV, show_col_types = FALSE))
+  if (nrow(rules_raw)) {
+    rescored <- rescore_full_metrics(rules_raw, data_raw)
+    out_csv  <- sub("\\.csv$", "_full.csv", CHECKPOINT_CSV)
+    suppressMessages(readr::write_csv(rescored, out_csv))
+    message(sprintf("Re-scored on full data → %s (added: Support_full, Confidence_full, Lift_full)", out_csv))
+  } else {
+    message("Checkpoint exists but has no rows — skipping full-data re-scoring.")
+  }
+} else {
+  message("No checkpoint CSV found — skipping full-data re-scoring.")
+}
+# -----------------------------------------------------------------------
 
 # Final summary
 message("Done.")
