@@ -77,6 +77,27 @@ POS_FRACTION   <- 0.89                        # ~ 2/3 from the target Rings=v
 RINGS_MAP_MODE   <- "split"   # "split" | "nearest" | "strict"
 RINGS_NEAREST_TOL<- 0.5       # used in "strict"
 
+# ---- Length-aware discovery gates (bootstrap metrics) ----
+# Confidence thresholds by rule length (during MINING)
+DISC_CONF_LEN1     <- 0.25   # len==1  (you said you need a few for ordering)
+DISC_CONF_LEN2     <- 0.20   # len==2
+DISC_CONF_LEN3     <- 0.10   # len==3
+DISC_CONF_LEN4PLUS <- 0.00   # len>=4  (waive at discovery; you’ll prune after full re-score)
+
+# Support thresholds by rule length (during MINING) -- set to 0 to disable
+DISC_SUPP_LEN1     <- 0.010  # ~1% of bootstrap rows
+DISC_SUPP_LEN2     <- 0.008
+DISC_SUPP_LEN3     <- 0.006
+DISC_SUPP_LEN4PLUS <- 0.000  # len>=4: let them through if they exist at all
+
+# Let a trickle of short rules through so they don't flood
+KEEP_LEN1_PER_RING_BATCH  <- 2L   # keep at most this many len==1 per ring per batch
+KEEP_LEN2_PER_RING_BATCH  <- Inf  # set to 3L if you want a cap; 'Inf' = no cap
+KEEP_LEN3_PER_RING_BATCH  <- Inf
+KEEP_LEN4P_PER_RING_BATCH <- Inf
+
+LONG_LHS_MIN <- 4L  # definition of "long" for the bypass path
+
 batch_times <- numeric(0)
 
 # -------------------------------------------------------------
@@ -364,50 +385,135 @@ while (length(below_quota()) && batch < MAX_BATCHES) {
   total_seeds_tried <- total_seeds_tried + length(seeds)
   
   # combine and filter to RHS == Rings=target_v
-  cand <- bind_rows(res_list)
-  cat("cand rules this batch:", nrow(cand), "\n")
-  if (nrow(cand)) {
-    vtab <- sort(table(cand$v[!is.na(cand$v) & cand$v %in% RINGS_VALUES]), decreasing = TRUE)
+  # -------- LENGTH-AWARE ACCEPT / FUNNEL LOG --------
+  batch_start <- batch_start  # (just to clarify we use the same timer)
+  
+  cand_pre <- dplyr::bind_rows(res_list)
+  n0 <- nrow(cand_pre)
+  cat("cand rules this batch:", n0, "\n")
+  
+  # Optional peek logs on raw batch
+  if (n0) {
+    vtab <- sort(table(cand_pre$v[!is.na(cand_pre$v) & cand_pre$v %in% RINGS_VALUES]), decreasing = TRUE)
     if (length(vtab)) cat("Rings in batch (pre-filter):", paste(head(paste0(names(vtab), "=", as.integer(vtab)), 12), collapse=" | "), "\n")
+    rhs_tab <- sort(table(cand_pre$rhs_name), decreasing = TRUE)
+    cat("Top RHS:", paste(head(paste0(names(rhs_tab), "=", as.integer(rhs_tab)), 8), collapse = " | "), "\n")
   }
-  if (nrow(cand)) {
-    tab <- sort(table(cand$rhs_name), decreasing = TRUE)
-    cat("Top RHS:", paste(head(paste0(names(tab), "=", as.integer(tab)), 8), collapse = " | "), "\n")
-  }
-  if (nrow(cand)) {
+  
+  # 1) valid ring map
+  cand1 <- cand_pre %>%
+    dplyr::filter(!is.na(v), v %in% RINGS_VALUES)
+  n1 <- nrow(cand1)
+  
+  # 2) global LHS min OR allow len==1 (you need some singletons for ordering)
+  cand_len_ok <- cand1 %>%
+    dplyr::filter(LHS_len >= LHS_MIN_LEN | LHS_len == 1)
+  n2 <- nrow(cand_len_ok)
+  
+  # 3) attach length-aware metric requirements (bootstrap metrics)
+  cand_len_ok <- cand_len_ok %>%
+    dplyr::mutate(
+      conf_req = dplyr::case_when(
+        LHS_len <= 1 ~ DISC_CONF_LEN1,
+        LHS_len == 2 ~ DISC_CONF_LEN2,
+        LHS_len == 3 ~ DISC_CONF_LEN3,
+        TRUE         ~ DISC_CONF_LEN4PLUS
+      ),
+      supp_req = dplyr::case_when(
+        LHS_len <= 1 ~ DISC_SUPP_LEN1,
+        LHS_len == 2 ~ DISC_SUPP_LEN2,
+        LHS_len == 3 ~ DISC_SUPP_LEN3,
+        TRUE         ~ DISC_SUPP_LEN4PLUS
+      )
+    )
+  
+  # 4) enforce length-aware support+confidence (respect global mins too)
+  cand_metrics <- cand_len_ok %>%
+    dplyr::filter(
+      Support    >= pmax(supp_req, MIN_SUPP),
+      Confidence >= pmax(conf_req, MIN_CONF)
+    )
+  n3 <- nrow(cand_metrics)
+  
+  # 5) extra long-LHS path: let len >= LONG_LHS_MIN through if Support > 0
+  cand_long <- cand_len_ok %>%
+    dplyr::filter(LHS_len >= LONG_LHS_MIN, Support > 0)
+  n_long_extra <- nrow(cand_long)
+  
+  # 6) merge paths, drop exact row dupes before de-dup by key
+  cand <- dplyr::bind_rows(cand_metrics, cand_long) %>%
+    dplyr::distinct(Antecedent, Consequence, v, .keep_all = TRUE)
+  n4 <- nrow(cand)
+  
+  # 7) per-ring, per-length caps PER BATCH (avoid short flooding)
+  if (n4) {
     cand <- cand %>%
-      dplyr::filter(!is.na(v),
-                    v %in% RINGS_VALUES,
-                    LHS_len >= LHS_MIN_LEN,
-                    Support >= MIN_SUPP,
-                    Confidence >= MIN_CONF)
+      dplyr::arrange(v, dplyr::desc(LHS_len), dplyr::desc(Confidence), dplyr::desc(Support)) %>%
+      dplyr::group_by(v) %>%
+      dplyr::mutate(
+        rank_len1  = ifelse(LHS_len == 1, cumsum(LHS_len == 1), NA_integer_),
+        rank_len2  = ifelse(LHS_len == 2, cumsum(LHS_len == 2), NA_integer_),
+        rank_len3  = ifelse(LHS_len == 3, cumsum(LHS_len == 3), NA_integer_),
+        rank_len4p = ifelse(LHS_len >= 4, cumsum(LHS_len >= 4), NA_integer_)
+      ) %>%
+      dplyr::filter(
+        (LHS_len == 1 & rank_len1  <= KEEP_LEN1_PER_RING_BATCH) |
+          (LHS_len == 2 & rank_len2  <= KEEP_LEN2_PER_RING_BATCH) |
+          (LHS_len == 3 & rank_len3  <= KEEP_LEN3_PER_RING_BATCH) |
+          (LHS_len >= 4 & rank_len4p <= KEEP_LEN4P_PER_RING_BATCH)
+      ) %>%
+      dplyr::ungroup() %>%
+      dplyr::select(-dplyr::starts_with("rank_len"), -conf_req, -supp_req)
+  }
+  n5 <- nrow(cand)
+  
+  # 8) de-dup by (LHS set + ring), collapse within-batch dups by best metric
+  if (n5) {
+    cand$key <- mapply(function(a, v) rule_key(a, v), cand$Antecedent, cand$v, USE.NAMES = FALSE)
+    dup_mask_external <- vapply(cand$key, exists, logical(1), envir = keys)
+    n_dup <- sum(dup_mask_external)
+    new_rules <- cand[!dup_mask_external, , drop = FALSE]
     
-    # de-duplicate and keep only new ones
-    if (nrow(cand)) {
-      cand$key <- mapply(function(a, v) rule_key(a, v), cand$Antecedent, cand$v, USE.NAMES = FALSE)
-      is_new <- !vapply(cand$key, exists, logical(1), envir = keys)
-      # keep the key so we can collapse within-batch dups
-      new_rules <- cand[is_new, , drop = FALSE]
+    if (nrow(new_rules)) {
+      new_rules <- new_rules %>%
+        dplyr::group_by(key) %>%
+        dplyr::slice_max(order_by = dplyr::coalesce(Fitness, Confidence, Support),
+                         n = 1, with_ties = FALSE) %>%
+        dplyr::ungroup()
       
-      if (nrow(new_rules)) {
-        # collapse any within-batch duplicates (same LHS set + v) by best Fitness/Confidence/Support
-        new_rules <- new_rules |>
-          dplyr::group_by(key) |>
-          dplyr::slice_max(order_by = dplyr::coalesce(Fitness, Confidence, Support),
-                           n = 1, with_ties = FALSE) |>
-          dplyr::ungroup()
-        
-        # register keys so future batches recognize these as seen
-        invisible(vapply(new_rules$key, function(k) { assign(k, TRUE, envir = keys); TRUE }, logical(1)))
-        
-        # append to per-ring buckets
-        by_v <- split(new_rules, new_rules$v)
-        for (vk in names(by_v)) {
-          kept[[vk]] <- dplyr::bind_rows(kept[[vk]], by_v[[vk]])
-        }
+      # register keys so future batches skip these
+      invisible(vapply(new_rules$key, function(k) { assign(k, TRUE, envir = keys); TRUE }, logical(1)))
+      
+      # append to per-ring buckets
+      by_v <- split(new_rules, new_rules$v)
+      for (vk in names(by_v)) {
+        kept[[vk]] <- dplyr::bind_rows(kept[[vk]], by_v[[vk]])
       }
     }
+  } else {
+    n_dup <- 0L
+    new_rules <- cand[FALSE, , drop = FALSE]
   }
+  
+  # 9) funnel log
+  cat(sprintf(
+    "funnel: pre=%d  vmap=%d  len_ok=%d  metrics=%d  (+long=%d)  after_caps=%d  dup=%d  kept=%d\n",
+    n0, n1, n2, n3, n_long_extra, n5, n_dup, nrow(new_rules)
+  ))
+  if (nrow(new_rules)) {
+    kept_by_len <- sort(table(new_rules$LHS_len), decreasing = TRUE)
+    cat("kept by LHS_len:", paste(sprintf("%s=%s", names(kept_by_len), as.integer(kept_by_len)), collapse=" | "), "\n")
+  }
+  
+  # (for status line later)
+  kept_msg <- ""
+  if (nrow(new_rules)) {
+    by_v_now <- sort(table(new_rules$v), decreasing = TRUE)
+    kept_msg <- paste(names(by_v_now), as.integer(by_v_now), sep="=", collapse=" | ")
+    kept_msg <- paste0(" | kept_this_batch: ", kept_msg)
+  }
+  # -------- END LENGTH-AWARE ACCEPT / FUNNEL LOG --------
+  
   
   # recompute counts and write checkpoint CSV
   counts <- setNames(sapply(RINGS_VALUES, function(v) nrow(kept[[as.character(v)]] %||% data.frame())), RINGS_VALUES)
@@ -430,12 +536,15 @@ while (length(below_quota()) && batch < MAX_BATCHES) {
   msg <- sprintf("[batch %03d] seeds tried: %d | targeting Rings=%d | rules per ring: %s",
                  batch, total_seeds_tried, target_v, status)
   
+  if (exists("kept_msg") && nzchar(kept_msg)) {
+    msg <- paste0(msg, kept_msg)
+  }
+  
   msg <- paste0(
     msg,
     sprintf(" | batch_time=%.1fs | avg_last5=%.1fs | cand/s=%s",
             elapsed, ma5, if (is.finite(cps)) sprintf("%.1f", cps) else "NA")
   )
-  
   message(msg); flush.console()
 }
 
@@ -541,7 +650,7 @@ rescore_full_metrics <- function(rules_df, full_df) {
   out
 }
 
-
+#run this if we want to score an intermediate file
 # convenience wrapper
 rescore_file <- function(in_csv, out_csv = NULL, full_df = data_raw) {
   rules_raw <- suppressMessages(readr::read_csv(in_csv, show_col_types = FALSE))
@@ -551,6 +660,7 @@ rescore_file <- function(in_csv, out_csv = NULL, full_df = data_raw) {
   message(sprintf("Re-scored on full data → %s (%d rules)", out_csv, nrow(rescored)))
   invisible(rescored)
 }
+#replace harvest_rules by whatever intermediate file
 #rescore_file("harvest_rules.csv")
 
 # --- run the post-step on the current checkpoint ---
