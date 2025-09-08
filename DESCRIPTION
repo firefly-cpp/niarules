@@ -32,5 +32,4 @@ Suggests:
   withr
 LinkingTo: 
   Rcpp
-NAMESPACE:
-  useDynLib(niarules, .registration = TRUE)
+
