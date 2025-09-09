@@ -51,7 +51,9 @@
 #' @export
 build_coral_plots <- function(
     parsed,
-    lhs_sort_metric = c("confidence","support","lift")
+    lhs_sort_metric = c("confidence","support","lift"),
+    bin_breaks = NULL,
+    bin_digits = 3
 ) {
   lhs_sort_metric <- match.arg(lhs_sort_metric)
   
@@ -79,5 +81,106 @@ build_coral_plots <- function(
   
   # pass through and attach computed grid_size for the renderer
   out$grid_size <- grid_size
+  
+  # --- ENRICH NODES -----------------------------------------------------------
+  nodes <- out$nodes
+  if (!nrow(nodes)) {
+    out$grid_size <- grid_size
+    # also return empty scaffolding for new columns to keep callers happy
+    nodes$node_id <- integer(0)
+    nodes$is_root <- logical(0)
+    nodes$coral_id <- character(0)
+    nodes$interval_brackets <- character(0)
+    nodes$bin_index <- integer(0)
+    out$nodes <- nodes
+    out$bin_legend <- NULL
+    return(out)
+  }
+  
+  # stable id (useful to align with render_coral_rgl(return_data=TRUE))
+  nodes$node_id <- seq_len(nrow(nodes))
+  
+  # convenience flags/keys
+  nodes$is_root <- if ("step" %in% names(nodes)) nodes$step == 0L else FALSE
+  nodes$coral_id <- paste0(
+    sprintf("%.6f", nodes$x_offset), "_", sprintf("%.6f", nodes$z_offset)
+  )
+  
+  # bracket-only text for numeric items (e.g., "[0.405,0.485)")
+  .fmt_iv <- function(lo, hi, inc_lo, inc_hi, digits = 3) {
+    if (!is.finite(lo) && !is.finite(hi)) return(NA_character_)
+    lbr <- if (isTRUE(inc_lo)) "[" else "("
+    rbr <- if (isTRUE(inc_hi)) "]" else ")"
+    paste0(
+      lbr,
+      if (is.finite(lo)) formatC(lo, digits = digits, format = "f") else "-Inf",
+      ",",
+      if (is.finite(hi)) formatC(hi, digits = digits, format = "f") else "Inf",
+      rbr
+    )
+  }
+  
+  is_num <- !is.null(nodes$kind) & nodes$kind == "numeric"
+  nodes$interval_brackets <- NA_character_
+  if (all(c("interval_low","interval_high","incl_low","incl_high") %in% names(nodes))) {
+    nodes$interval_brackets[is_num] <- mapply(
+      .fmt_iv,
+      nodes$interval_low[is_num],
+      nodes$interval_high[is_num],
+      nodes$incl_low[is_num],
+      nodes$incl_high[is_num],
+      MoreArgs = list(digits = bin_digits)
+    )
+  }
+  
+  # --- OPTIONAL: per-node bin_index + a bin_legend we can pass downstream -----
+  .legend_from_breaks <- function(br, digits = 3) {
+    if (length(br) < 2) return(NULL)
+    data.frame(
+      bin = seq_len(length(br) - 1L),
+      interval = paste0(
+        "[",
+        formatC(br[-length(br)], digits = digits, format = "f"),
+        ",",
+        formatC(br[-1L],         digits = digits, format = "f"),
+        ")"
+      ),
+      stringsAsFactors = FALSE
+    )
+  }
+  
+  bin_legend <- NULL
+  nodes$bin_index <- NA_integer_
+  
+  if (is.list(bin_breaks) && length(bin_breaks)) {
+    # build a combined legend first
+    bl <- lapply(names(bin_breaks), function(f) {
+      L <- .legend_from_breaks(sort(unique(as.numeric(bin_breaks[[f]]))), digits = bin_digits)
+      if (is.null(L)) return(NULL)
+      L$feature <- f
+      L
+    })
+    bin_legend <- do.call(rbind, bl)
+    
+    # fast numeric bin mapping by midpoint & findInterval (left-closed, right-open)
+    mid <- (nodes$interval_low + nodes$interval_high) / 2
+    for (f in intersect(names(bin_breaks), unique(nodes$feature[is_num]))) {
+      br <- sort(unique(as.numeric(bin_breaks[[f]])))
+      if (length(br) < 2) next
+      idx <- is_num & nodes$feature == f & is.finite(mid)
+      nodes$bin_index[idx] <- findInterval(mid[idx], br, left.open = FALSE, rightmost.closed = FALSE)
+      # findInterval gives 0..(K-1); keep 1..(K-1) and drop out-of-range as NA
+      nodes$bin_index[idx] <- ifelse(
+        nodes$bin_index[idx] %in% seq_len(length(br) - 1L),
+        nodes$bin_index[idx],
+        NA_integer_
+      )
+    }
+  }
+  
+  # write back & return
+  out$nodes <- nodes
+  out$grid_size <- grid_size
+  out$bin_legend <- bin_legend
   out
 }

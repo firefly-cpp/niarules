@@ -161,18 +161,30 @@ render_coral_rgl <- function(
     grid_color   = "grey92",
     
     legend       = FALSE,
-    legend_style   = c("auto","feature","grouped"),
+    legend_style   = c("auto","feature","grouped", "feature_bins"),
     legend_cex     = 1.0,
     legend_pos     = c("inside_right","topright","topleft","custom"),
     legend_items_per_feature = 6L,
     legend_features_max      = 10L,
     legend_xy      = c(0.92, 0.96),
+    legend_panel_width  = 0.28,
+    legend_panel_margin = 0.02,
+    legend_reserve = NULL,
+    legend_title_cex = NULL,
+    legend_row_cex   = NULL,
+    legend_col_gap = 0.004,
     
-    label_mode   = c("none", "interval", "item", "interval_short"),
+    label_mode   = c("none", "interval", "item", "interval_short", "bin"),
     label_cex    = 0.7,
     label_offset = 1.5,
-    max_labels   = 100,
     label_color  = NULL,
+    label_non_numeric = c("none","category","item"),
+    max_labels   = 0,
+    
+    bin_legend = NULL,     # data.frame(feature, bin, interval)  (optional)
+    bin_breaks = NULL,     # named list(Feature = numeric breaks) (optional)
+    bin_infer  = TRUE,     # infer from nodes if nothing else is given
+    bin_label_fmt = c("index","roman"),  # how to print bin numbers
     
     theme = c("default","studio","flat","dark","none"),
     theme_overrides = NULL,
@@ -199,6 +211,7 @@ render_coral_rgl <- function(
     node_color_by     = c("type","item","none","edge_incoming","edge_outgoing_mean"),
     node_gradient     = "match",   # or a vector of hex colors for nodes
     node_gradient_map = c("even","hash","frequency"),
+    node_scale   = 1.0, 
     
     radial_expand = 1.0,
     radial_gamma  = 1.0,
@@ -230,6 +243,11 @@ render_coral_rgl <- function(
   legend_xy <- as.numeric(legend_xy)
   if (length(legend_xy) != 2L) stop("legend_xy must be a length-2 numeric vector.")
   
+  legend_style     <- match.arg(legend_style)
+  label_mode       <- match.arg(label_mode)
+  label_non_numeric<- match.arg(label_non_numeric)
+  bin_label_fmt    <- match.arg(bin_label_fmt)
+  
   label_mode           <- match.arg(label_mode)
   node_color_by     <- match.arg(node_color_by)
   node_gradient_map <- match.arg(node_gradient_map)
@@ -240,7 +258,7 @@ render_coral_rgl <- function(
   jitter_mode          <- match.arg(jitter_mode)
   if (!is.null(edge_alpha_metric)) edge_alpha_transform <- match.arg(edge_alpha_transform)
   
-#### helpers
+  #### helpers
   .norm_metric <- function(x, transform = c("linear","sqrt","log"), domain = NULL) {
     x <- as.numeric(x)
     r <- if (is.null(domain)) range(x, finite = TRUE) else as.numeric(domain)
@@ -265,7 +283,7 @@ render_coral_rgl <- function(
     }, numeric(1))
   }
   
-#### edge styling (color, width, alpha)
+  #### edge styling (color, width, alpha)
   miss_cols <- setdiff(c(edge_width_metric, edge_color_metric, edge_alpha_metric), names(edges))
   if (length(miss_cols)) stop("edges missing required metric columns: ", paste(miss_cols, collapse = ", "))
   
@@ -288,7 +306,7 @@ render_coral_rgl <- function(
   edges$alpha <- a
   edges$t_color_norm <- tc
   
-#### node styling (color)
+  #### node styling (color)
   if (node_color_by %in% c("type","item")) {
     key <- if (node_color_by == "type") as.character(nodes$feature) else as.character(nodes$item)
     
@@ -382,13 +400,26 @@ render_coral_rgl <- function(
     nodes$y <- nodes$y + (jitter_sd * r_norm) * noise
   }
   
-#### draw
+  #### draw
   if (rgl::rgl.cur() == 0) rgl::open3d()
-  rgl::par3d(windowRect = c(50, 50, 1000, 1000))
+  rgl::par3d(windowRect = c(50, 50, 1200, 1200))
   phi_deg <- atan2(grid_size * 0.5, grid_size * 1.5) * 180 / pi
   rgl::view3d(theta = 0, phi = phi_deg, fov = 60)
   rgl::aspect3d(1, 1, 1)
   rgl::par3d(skipRedraw = TRUE)
+  
+  restore_vp <- NULL
+  if (isTRUE(legend) && legend_style %in% c("feature","grouped","feature_bins")) {
+    vp <- rgl::par3d("viewport")                 # c(x, y, width, height) in pixels
+    reserve_frac <- (if (is.null(legend_reserve)) legend_panel_width else legend_reserve) +
+      legend_panel_margin
+    new_w <- max(1L, floor(vp[3] * (1 - reserve_frac)))  # width for the 3D scene
+    if (new_w < vp[3]) {
+      restore_vp <- vp
+      rgl::par3d(viewport = c(vp[1], vp[2], new_w, vp[4]))
+      on.exit(try(rgl::par3d(viewport = restore_vp), silent = TRUE), add = TRUE)
+    }
+  }
   
   if (grid_outline) {
     rgl::material3d(lit = FALSE)
@@ -437,7 +468,7 @@ render_coral_rgl <- function(
   # propagate final node positions
   stopifnot(all(c("parent_path","child_path") %in% names(edges)),
             "path" %in% names(nodes))
-
+  
   nodes$path        <- as.character(nodes$path)
   edges$parent_path <- as.character(edges$parent_path)
   edges$child_path  <- as.character(edges$child_path)
@@ -448,6 +479,9 @@ render_coral_rgl <- function(
   
   edges$x     <- nodes$x[ip];  edges$z     <- nodes$z[ip];  edges$y     <- y_draw[ip]
   edges$x_end <- nodes$x[ic];  edges$z_end <- nodes$z[ic];  edges$y_end <- y_draw[ic]
+  
+  # keep final stacked/elevated y for consumers (post-labeling helpers)
+  nodes$y_draw <- y_draw
   
   stems <- idx[abs(y_draw[idx] - nodes$y[idx]) > 1e-9]
   if (length(stems)) {
@@ -470,52 +504,94 @@ render_coral_rgl <- function(
       sub <- edges[edge_idx, , drop = FALSE]
       coords <- as.numeric(t(cbind(sub$x, sub$y, sub$z, sub$x_end, sub$y_end, sub$z_end)))
       if (!is.null(th$materials$edges)) do.call(rgl::material3d, th$materials$edges)
-      rgl::segments3d(coords, color = st$color, alpha = st$alpha_binned,
-                      lwd = st$width_binned, depth_mask = FALSE)
+      rgl::segments3d(coords, color = st$color, alpha = st$alpha_binned,lwd = st$width_binned, depth_mask = FALSE)
     }
   }
   
   if (!is.null(th$materials$nodes)) do.call(rgl::material3d, th$materials$nodes)
-  rgl::spheres3d(nodes$x, y_draw, nodes$z, radius = nodes$radius, color = node_cols)
+  r_draw <- nodes$radius * node_scale
+  rgl::spheres3d(nodes$x, y_draw, nodes$z, radius = r_draw, color = node_cols)
+  
   
   if (label_mode != "none") {
-    txt <- if (label_mode == "interval" && "interval_label" %in% names(nodes)) {
-      nodes$interval_label
-    } else if (label_mode == "interval_short" && "interval_label_short" %in% names(nodes)) {
-      nodes$interval_label_short
-    } else {
-      nodes$item
+    
+    # --- derive label text ---------------------------------------------------
+    txt <- rep("", nrow(nodes))
+    
+    if (label_mode %in% c("interval", "interval_short", "item")) {
+      txt <- if (label_mode == "interval" && "interval_label" %in% names(nodes)) {
+        nodes$interval_label
+      } else if (label_mode == "interval_short" && "interval_label_short" %in% names(nodes)) {
+        nodes$interval_label_short
+      } else {
+        nodes$item
+      }
     }
     
-    # make sure roots always have some text
+    if (label_mode == "bin") {
+      # Numeric nodes prefer precomputed bin_index from build_coral_plots()
+      # Fallback to interval_brackets if index missing.
+      # robust numeric/non-numeric split
+      has_kind <- "kind" %in% names(nodes)
+      is_num <- if (has_kind) (!is.na(nodes$kind) & nodes$kind == "numeric")
+      else grepl("\\[|\\(", nodes$item %||% "")
+      
+      if ("bin_index" %in% names(nodes)) {
+        txt[is_num & !is.na(nodes$bin_index)] <- as.character(nodes$bin_index[is_num & !is.na(nodes$bin_index)])
+      }
+      # fallback: use bracket strings as labels if no index available
+      if ("interval_brackets" %in% names(nodes)) {
+        need <- is_num & (is.na(txt) | !nzchar(txt))
+        txt[need] <- nodes$interval_brackets[need]
+      }
+      
+      
+      
+      if (any(!is_num)) {
+        if (label_non_numeric == "category" && "category_val" %in% names(nodes)) {
+          # sanitize values once
+          cat_raw <- as.character(nodes$category_val)
+          cat_raw <- sub("^=+\\s*", "", cat_raw)
+          # subset to the exact positions you’re filling
+          idx <- which(!is_num)
+          txt[idx] <- ifelse(is.na(cat_raw[idx]), "", cat_raw[idx])
+        } else if (label_non_numeric == "item") {
+          txt[!is_num] <- nodes$item[!is_num]
+        } else {
+          txt[!is_num] <- ""
+        }
+      }
+      
+      # optional roman numerals
+      if (identical(bin_label_fmt, "roman")) {
+        ok <- is.finite(suppressWarnings(as.numeric(txt)))
+        txt[ok] <- as.character(as.roman(as.integer(txt[ok])))
+      }
+    }
+    
+    # roots must show *something*
+    is_root <- if ("step" %in% names(nodes)) nodes$step == 0L else rep(FALSE, nrow(nodes))
     missing_root_txt <- (is.na(txt) | !nzchar(txt)) & is_root
     txt[missing_root_txt] <- nodes$item[missing_root_txt]
     
-    # - max_labels <= 0  -> show only roots
-    # - else             -> top-N by radius plu all roots
-    if (isTRUE(max_labels <= 0)) {
-      keep <- which(is_root)
-    } else {
+    # cap labels: keep largest radii + all roots
+    keep <- if (isTRUE(max_labels <= 0)) which(is_root) else {
       ord <- order(nodes$radius, decreasing = TRUE)
-      keep_main <- head(ord, max_labels)
-      keep <- sort(unique(c(keep_main, which(is_root))))
+      sort(unique(c(head(ord, max_labels), which(is_root))))
     }
     
     # place labels using the already-stacked y positions
-    y_label <- y_draw - nodes$radius * label_offset
+    y_label <- nodes$y_draw - r_draw * label_offset
     
-    # optional color override (vector or scalar); default to node colors
+    # color override (vector or scalar); default to node colors
     lbl_cols <- if (!is.null(label_color)) {
       if (length(label_color) == 1L) rep(label_color, nrow(nodes)) else label_color
     } else {
-      node_cols
+      if ("color" %in% names(nodes)) nodes$color else "black"
     }
     
     lbl_mat <- th$materials$labels %||% list()
-    # respect an explicit theme override if the user really wants different behavior;
-    # otherwise default to "always" so labels stay in front.
     if (is.null(lbl_mat$depth_test)) lbl_mat$depth_test <- "always"
-    
     do.call(rgl::material3d, lbl_mat)
     
     rgl::text3d(
@@ -526,10 +602,8 @@ render_coral_rgl <- function(
       cex       = label_cex,
       color     = lbl_cols[keep],
       fixedSize = TRUE,
-      adj       = c(0.5, 1)
+      adj       = c(0.5, 0.5)
     )
-    
-    # restore the normal depth test so later geometry behaves as expected
     rgl::material3d(depth_test = "less")
   }
   
@@ -538,34 +612,71 @@ render_coral_rgl <- function(
   
   if (isTRUE(legend) && "color" %in% names(nodes)) {
     .dedupe <- function(df, cols) df[!duplicated(df[cols]), cols, drop = FALSE]
-    # auto: choose "feature" when coloring by type; otherwise "grouped"
-    if (legend_style == "auto")
-      legend_style <- if (identical(node_color_by, "type")) "feature" else "grouped"
+    
+    if (legend_style == "auto") {
+      has_bins <- !is.null(bin_legend) ||
+        ("bin_index" %in% names(nodes) && any(is.finite(nodes$bin_index))) ||
+        (!is.null(bin_breaks))
+      legend_style <- if (has_bins) "feature_bins" else if (identical(node_color_by, "type")) "feature" else "grouped"
+    }
     
     rgl::bgplot3d({
       op <- par(mar = c(0,0,0,0)); on.exit(par(op), add = TRUE)
       plot.new()
       
-      # anchor (normalized device coords)
+      .fit_text <- function(s, max_w, cex) {
+        s <- as.character(s); if (!nzchar(s) || !is.finite(max_w) || max_w <= 0) return(s)
+        if (strwidth(s, cex = cex) <= max_w) return(s)
+        lo <- 1L; hi <- nchar(s); best <- "…"
+        while (lo <= hi) {
+          mid  <- (lo + hi) %/% 2L
+          cand <- paste0(substr(s, 1L, mid), "…")
+          if (strwidth(cand, cex = cex) <= max_w) { best <- cand; lo <- mid + 1L } else { hi <- mid - 1L }
+        }
+        best
+      }
+      
       anchor <- switch(legend_pos,
-                       inside_right = c(0.92, 0.96),
+                       inside_right = c(0.9, 0.9),
                        topright     = c(0.98, 0.98),
                        topleft      = c(0.02, 0.98),
-                       custom       = legend_xy
-      )
-      x_right <- anchor[1]
-      y_top   <- anchor[2]
+                       custom       = legend_xy)
+      x_right <- anchor[1]; y_top <- anchor[2]
       
-      # panel box for readability
-      panel_w <- 0.28
+      panel_w <- legend_panel_width
       panel_h <- 0.88
-      rect(x_right - panel_w, y_top - panel_h, x_right, y_top,
+      x_left  <- x_right - panel_w
+      y_bot   <- y_top   - panel_h                      # <-- define y_bot
+      rect(x_left, y_bot, x_right, y_top,
            col = rgb(1,1,1,0.88), border = NA, xpd = NA)
       
-      line_h <- strheight("M") * 1.25 * legend_cex
-      x_sw   <- x_right - 0.025
-      x_txt  <- x_right - 0.030
-      y      <- y_top - line_h * 0.5
+      title_cex <- if (is.null(legend_title_cex)) 1.00 * legend_cex else legend_title_cex
+      row_cex   <- if (is.null(legend_row_cex))   0.95 * legend_cex else legend_row_cex
+      
+      # ---- shared geometry for all legend styles --------------------------------
+      line_h   <- max(0.020, strheight("M", cex = max(title_cex, row_cex)) * 1.25)
+      top_pad  <- 0.50 * line_h                         # <-- define pads
+      bot_pad  <- 0.30 * line_h
+      usable_h <- panel_h - top_pad - bot_pad
+      
+      # inner columns (right → left) inside fixed panel
+      ncol_max <- 2L
+      col_pad  <- 0.004#max(0, legend_col_gap) / 2
+      col_w    <- panel_w / ncol_max
+      col_idx  <- 0L
+      
+      # rightmost column bounds and positions
+      x_col_left  <- x_right - (col_idx + 1L) * col_w + col_pad
+      x_col_right <- x_right -  col_idx       * col_w - col_pad
+      
+      # swatch + text positions sized to column
+      sw_w    <- min(0.018, col_w * 0.35)
+      txt_gap <- min(0.006, col_w * 0.12)
+      x_sw_l  <- x_col_left
+      x_sw_r  <- x_sw_l + sw_w
+      x_txt   <- x_sw_r + txt_gap
+      y       <- y_top - top_pad
+      rows_per_col <- max(1L, floor(usable_h / line_h))
       
       if (legend_style == "feature") {
         stopifnot("feature" %in% names(nodes))
@@ -594,7 +705,151 @@ render_coral_rgl <- function(
           }
         }
         
-      } else {  # legend_style == "grouped"
+      } else if (legend_style == "feature_bins") {
+        # --- Build BL (bins) with fallbacks --------------------------------------
+        BL <- bin_legend
+        if (is.null(BL) && all(c("bin_index","interval_brackets","feature") %in% names(nodes))) {
+          ok <- is.finite(nodes$bin_index) &
+            !is.na(nodes$feature) & nzchar(nodes$feature) &
+            !is.na(nodes$interval_brackets) & nzchar(nodes$interval_brackets)
+          if (any(ok)) {
+            BL <- unique(data.frame(
+              feature  = as.character(nodes$feature[ok]),
+              bin      = as.integer(nodes$bin_index[ok]),
+              interval = as.character(nodes$interval_brackets[ok]),
+              stringsAsFactors = FALSE
+            ))
+          }
+        }
+        if (is.null(BL) && !is.null(bin_breaks)) {
+          mk <- function(f, br) {
+            br <- sort(unique(as.numeric(br))); if (length(br) < 2) return(NULL)
+            data.frame(feature=f,
+                       bin=seq_len(length(br)-1L),
+                       interval=sprintf("[%s,%s)", format(br[-length(br)]), format(br[-1L])),
+                       stringsAsFactors=FALSE)
+          }
+          L <- Filter(Negate(is.null), lapply(names(bin_breaks), function(f) mk(f, bin_breaks[[f]])))
+          if (length(L)) BL <- do.call(rbind, L)
+        }
+        if (is.null(BL) || !nrow(BL)) return(invisible())
+        
+        BL$feature  <- as.character(BL$feature)
+        BL$interval <- as.character(BL$interval)
+        
+        # --- colors from drawn nodes (dataset-agnostic via normalized keys) ------
+        norm_key <- function(s) gsub("[^[:alnum:]]+", "", tolower(trimws(as.character(s))))
+        dd <- data.frame(key = norm_key(nodes$feature),
+                         color = as.character(nodes$color),
+                         stringsAsFactors = FALSE)
+        dd <- dd[nzchar(dd$key) & nzchar(dd$color) & !is.na(dd$key) & !is.na(dd$color), , drop = FALSE]
+        dd <- dd[!duplicated(dd$key), , drop = FALSE]
+        feat_cols <- as.list(setNames(dd$color, dd$key))  # lookup by normalized key
+        
+        # --- Build draw items: numerics first, then categorical summary ----------
+        feats_num <- sort(unique(BL$feature))
+        if (length(feats_num) > legend_features_max) feats_num <- feats_num[seq_len(legend_features_max)]
+        
+        items <- list()  # each item: list(title, rows, color, need)
+        add_item <- function(title, rows, col) {
+          items[[length(items) + 1L]] <<- list(title = title, rows = rows, col = col,
+                                               need = 1L + length(rows))
+        }
+        
+        # numeric items
+        for (f in feats_num) {
+          rows <- BL[BL$feature == f, , drop = FALSE]
+          rows <- rows[order(rows$bin), , drop = FALSE]
+          blab <- if (identical(bin_label_fmt, "roman")) as.character(as.roman(rows$bin)) else as.character(rows$bin)
+          txt  <- sprintf("%s  %s", blab, rows$interval)
+          add_item(f, txt, feat_cols[[norm_key(f)]] %||% "grey70")
+        }
+        
+        # categorical items (1 row per feature) — appended after numerics
+        cats_all  <- if ("kind" %in% names(nodes)) sort(unique(as.character(nodes$feature[nodes$kind == "categorical"]))) else character(0)
+        cats_show <- setdiff(cats_all, unique(BL$feature))
+        for (f in cats_show) {
+          vals <- unique(na.omit(as.character(nodes$category_val[nodes$feature == f])))
+          vals <- gsub("^=+\\s*", "", vals); vals <- vals[nzchar(vals)]
+          lbl  <- if (length(vals) == 1L) sprintf("%s = %s", f, vals[1]) else sprintf("%s in {%s}", f, paste(sort(vals), collapse = ", "))
+          add_item(f, lbl, feat_cols[[norm_key(f)]] %||% "grey70")
+        }
+        if (!length(items)) return(invisible())
+        
+        # --- decide #columns and set per-column geometry -------------------------
+        total_lines <- sum(vapply(items, `[[`, integer(1), "need"))
+        cap_per_col <- max(1L, floor(usable_h / line_h))
+        ncol_needed <- max(1L, ceiling(total_lines / cap_per_col))
+        ncol_max    <- min(max(2L, ncol_needed), 4L)   # allow 2..4 columns
+        
+        # per-column geometry (fixed for this draw) — RIGHT-ALIGNED
+        col_w  <- panel_w / ncol_max
+        sw_w   <- min(0.018, col_w * 0.32)
+        txt_gp <- min(0.008, col_w * 0.22)
+        
+        # right → left columns: index 1..ncol_max (1 is rightmost)
+        col_left  <- x_right - (1:ncol_max) * col_w + col_pad
+        col_right <- x_right - (0:(ncol_max-1)) * col_w - col_pad
+        
+        # anchor at right edge of each column; text grows LEFT, swatch sits left of text
+        x_sw_l_v <- col_left  + 0.004
+        x_sw_r_v <- x_sw_l_v + sw_w
+        x_txt_v  <- x_sw_r_v + txt_gp
+        
+        # per-column y cursors (start at the top)
+        y_v <- rep(y_top - top_pad, ncol_max)
+        
+        # advance to next column when current column has no room for `need` rows
+        cur <- 1L
+        advance <- function(need_rows) {
+          while (cur <= ncol_max && (y_v[cur] - need_rows * line_h) < (y_bot + bot_pad)) {
+            cur <<- cur + 1L
+          }
+          cur <= ncol_max
+        }
+        
+        draw_block <- function(title, rows_vec, color_hex) {
+          need <- 1L + length(rows_vec)
+          if (!advance(need)) return(FALSE)
+          
+          x_txt  <- x_txt_v[cur]
+          x_sw_l <- x_sw_l_v[cur]
+          x_sw_r <- x_sw_r_v[cur]
+          y      <- y_v[cur]
+          
+          # title (right-aligned)
+          #title_cex <- 1.00 * legend_cex
+          max_w     <- col_right[cur] - 0.004 - x_txt
+          title_lab <- .fit_text(title, max_w, title_cex)
+          text(x_txt, y, labels = title_lab,
+               cex = title_cex, adj = c(0, 1), font = 2)
+          y <- y - line_h
+          
+          # rows (right-aligned; swatch to the left)
+          if (length(rows_vec)) {
+            rv <- if (is.character(rows_vec)) rows_vec else as.character(rows_vec)
+            for (i in seq_along(rv)) {
+              rect(xleft = x_sw_l, ybottom = y - 0.60 * line_h,
+                   xright = x_sw_r, ytop = y - 0.15 * line_h,
+                   col = color_hex, border = NA, xpd = NA)
+              lab <- .fit_text(rv[i], col_right[cur] - 0.004 - x_txt, row_cex)
+              text(x_txt, y - 0.38 * line_h, labels = lab,
+                   cex = row_cex, adj = c(0, 0.5))
+              y <- y - line_h
+            }
+          }
+          
+          y <- y - 0.40 * line_h
+          y_v[cur] <<- y
+          TRUE
+        }
+        
+        # --- draw items sequentially: numerics first, then categorical -----------
+        for (it in items) {
+          draw_block(it$title, it$rows, it$col)
+        }
+      }
+      else {  # legend_style == "grouped"
         need <- c("feature","item","color")
         if (!all(need %in% names(nodes))) stop("nodes must have columns: feature, item, color")
         df <- .dedupe(nodes, need)
@@ -631,6 +886,7 @@ render_coral_rgl <- function(
           if (y < 0.06) break
         }
       }
+      
     })
   }
   
