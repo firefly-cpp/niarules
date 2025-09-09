@@ -260,7 +260,7 @@ Rcpp::List parse_rules_cpp(Rcpp::DataFrame rules_df) {
         // LHS: split by ',' or '&' (outside brackets); no canonicalization beyond trimming
         std::vector<int> lhs_vec;
         {
-            std::string lhs = Rcpp::as<std::string>(Antecedent[i]);
+            std::string lhs = strip_outer_braces(trim_copy(Rcpp::as<std::string>(Antecedent[i])));
             auto parts = split_outside_brackets_comma_amp(lhs);
             lhs_vec.reserve(parts.size());
             for (const auto& tok : parts) {
