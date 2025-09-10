@@ -6,6 +6,13 @@
 \usage{
 list_rhs_labels(parsed, ignore_order = TRUE)
 }
+\arguments{
+\item{parsed}{A list as returned by `parse_rules()`, with components
+`items` and `rules`.}
+
+\item{ignore_order}{Logical; if `TRUE` (default), items in an itemset are
+sorted alphabetically before composing labels.}
+}
 \description{
 List available RHS composite labels
 }

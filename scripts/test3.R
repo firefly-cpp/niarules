@@ -90,8 +90,4 @@ niarules::render_coral_rgl(
   node_gradient   = c(lhs1="#9E3D3D", lhs2="#006D77", lhs3="#8A5FBF", lhs4="#6E8000"),
   y_scale = 0.15, jitter_sd = 0.015, jitter_mode = "deterministic"
 )
-
-rgl::view3d(theta = -32, phi = 16, fov = 22, zoom = 0.95)
-rgl::par3d(antialias = 8)
-
 rgl::rgl.snapshot("test3.png", fmt = "png", top = TRUE)

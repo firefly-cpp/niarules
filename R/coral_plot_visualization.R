@@ -24,11 +24,37 @@
 #'   Endpoint columns are ignored if present and will be recomputed.
 #' @param grid_size integer; the layout grid size (usually `build_coral_layout()$grid_size`).
 #' @param grid_outline logical; if `TRUE` draws the reference grid/guide (using `grid_color`
-#'   or the theme’s grid color). Defaults to `FALSE` for clean screenshots.
+#'   or the theme's grid color). Defaults to `FALSE` for clean screenshots.
 #' @param grid_color color for the grid (if `grid_outline = TRUE`). If missing, the active
-#'   theme’s grid color is used. Default `"grey92"`.
+#'   theme's grid color is used. Default `"grey92"`.
 #' @param legend logical; draw a node legend keyed by base feature (`nodes$feature`).
 #'   Requires that `nodes$feature` and node colors are available. Default `FALSE`.
+#' @param legend_style Character; how to compose the legend. One of
+#'   `"auto"`, `"feature"`, `"grouped"`, `"feature_bins"`. `"auto"` picks
+#'   `"feature_bins"` when binning info is available, otherwise `"feature"`.
+#' @param legend_cex Numeric scaling factor for all legend text.
+#' @param legend_pos Character; legend position. One of
+#'   `"inside_right"`, `"topright"`, `"topleft"`, `"custom"`.
+#'   `"custom"` uses `legend_xy`.
+#' @param legend_items_per_feature Integer; maximum number of items to list per
+#'   feature before eliding with "...".
+#' @param legend_features_max Integer; maximum number of distinct features shown
+#'   in the legend.
+#' @param legend_xy Numeric length-2; normalized device coordinates `(x, y)` used
+#'   when `legend_pos = "custom"`.
+#' @param legend_panel_width Numeric (0-1); fraction of the viewport width
+#'   reserved for the legend panel when drawing inside the 3D device.
+#' @param legend_panel_margin Numeric (0-1); margin around the legend panel
+#'   within the reserved area.
+#' @param legend_reserve Optional numeric (0-1); if provided, overrides
+#'   `legend_panel_width` as the fraction of viewport width to carve out for the
+#'   legend.
+#' @param legend_title_cex Optional numeric; cex override for the legend title.
+#'   If `NULL`, a sensible default is used.
+#' @param legend_row_cex Optional numeric; cex override for item rows in the
+#'   legend. If `NULL`, a sensible default is used.
+#' @param legend_col_gap Numeric; horizontal gap between legend columns (in
+#'   normalized device coordinates).
 #' @param label_mode one of `"none"`, `"interval"`, `"item"`, `"interval_short"`.
 #'   Controls label text: interval labels, item labels, or no labels.
 #' @param label_cex numeric; label size passed to `rgl::text3d()`. Default `0.7`.
@@ -37,7 +63,9 @@
 #' @param max_labels integer; maximum number of non-root labels (largest radii first).
 #'   Root nodes are always kept. If `<= 0`, only root (RHS) labels are drawn.
 #' @param label_color `NULL` to color labels like their nodes, or a single color / vector to override.
-#'
+#' @param label_non_numeric Character; how to label non-numeric feature values.
+#'   One of `"none"`, `"category"`, `"item"`. `"none"` suppresses labels for
+#'   non-numeric nodes.
 #' @param theme character; one of `"default"`, `"studio"`, `"flat"`, `"dark"`, `"none"`.
 #'   Selects a preset for lights, materials, and background:
 #'   - **default**: balanced lighting with subtle specular highlights.
@@ -47,13 +75,20 @@
 #'   - **none**: no lights configured (use existing rgl state/ambient).
 #' @param theme_overrides optional named list to partially override the selected theme.
 #'   Supported keys: `background` (color), `grid_color` (color),
-#'   `materials` (list with sublists `nodes`, `edges`, `labels` — each passed to
+#'   `materials` (list with sublists `nodes`, `edges`, `labels` - each passed to
 #'   [rgl::material3d()]), and `lights` (list of argument lists for [rgl::light3d()]).
 #'   Example: `list(lights = list(list(theta = 60, phi = 30)))`.
 #' @param apply_theme logical; if `TRUE` (default) the theme is applied at the start of rendering
 #'   (background, lights, global/material defaults). Set to `FALSE` to keep the current rgl device
 #'   state (useful when you configure lights/materials once for batch rendering).
-#'
+#' @param bin_legend Optional `data.frame` with columns `feature`, `bin`,
+#'   `interval` (character), typically passed from `build_coral_plots()` to
+#'   drive a `"feature_bins"` legend.
+#' @param bin_breaks Optional named list `list(Feature = numeric breaks)` used
+#'   to compute per-feature bins when `bin_legend` is not provided.
+#' @param bin_infer Logical; if `TRUE`, infer binning from `nodes` when neither
+#'   `bin_legend` nor `bin_breaks` is provided.
+#' @param bin_label_fmt how numbers are printed, One of `"index`" or `"roman`". Default `"index`".
 #' @param edge_width_domain,edge_color_domain,edge_alpha_domain
 #'   optional numeric length-2 vectors giving the global domain (min, max)
 #'   to use when scaling the respective metric. If `NULL` (default),
@@ -91,8 +126,8 @@
 #'   - `"type"` colors by `nodes$feature`.
 #'   - `"item"` colors by `nodes$item`.
 #'   - `"none"` leaves existing/implicit colors.
-#'   - `"edge_incoming"` uses the mean of incoming edges’ normalized color metric (`t_color_norm`).
-#'   - `"edge_outgoing_mean"` uses the mean of outgoing edges’ normalized color metric.
+#'   - `"edge_incoming"` uses the mean of incoming edges' normalized color metric (`t_color_norm`).
+#'   - `"edge_outgoing_mean"` uses the mean of outgoing edges' normalized color metric.
 #'   Default `"type"`.
 #' @param node_gradient either the string `"match"` to reuse `edge_gradient` for nodes,
 #'   or a character vector (>= 2) of colors to build the node palette. Default `"match"`.
@@ -102,16 +137,16 @@
 #'   - `"hash"`: stable per-label positions via a lightweight hash (reproducible),
 #'   - `"frequency"`: labels ordered by frequency (most frequent near one end).
 #'   Default `"even"`.
-#'
+#' @param node_scale Numeric; global multiplier applied to node radii (size).
 #' @param radial_expand numeric; global expand/contract factor applied radially
 #'   from each plot center. `1` = no change; `>1` pushes nodes outward. Default `1`.
 #' @param radial_gamma numeric; curvature of the radial remap. `1` = linear,
 #'   `>1` separates outer rings (more spacing near the edge), `<1` compresses them.
 #'   Default `1`.
 #'
-#' @param y_scale numeric scalar; vertical scale factor applied to each node’s normalized
+#' @param y_scale numeric scalar; vertical scale factor applied to each node's normalized
 #'   radial distance from its local center (`x_offset`,`z_offset`). `0` keeps the
-#'   plot flat; try `0.5`–`0.8` for gentle relief. Default `0`.
+#'   plot flat; try `0.5`-`0.8` for gentle relief. Default `0`.
 #'
 #' @param jitter_sd numeric; standard deviation of vertical jitter added to nodes,
 #'   multiplied by the normalized radius so jitter fades toward the center. Default `0`.
@@ -120,7 +155,15 @@
 #'   Default `"deterministic"`.
 #' @param jitter_seed integer or `NULL`; RNG seed for reproducible **random** jitter.
 #'   Ignored for `"deterministic"` mode. Default `NULL`.
-#'
+#' @param keep_camera Logical; if `TRUE`, keep the current rgl camera settings
+#'   (angle, FOV, zoom). If `FALSE`, apply the view parameters below.
+#' @param view_theta Numeric; azimuth angle passed to `rgl::view3d()`.
+#' @param view_phi Optional numeric; elevation angle. If `NULL`, a sensible
+#'   default based on grid size is used.
+#' @param view_fov Numeric; field of view in degrees (passed to `rgl::view3d()`).
+#' @param view_zoom Optional numeric; zoom factor passed to `rgl::par3d(zoom=)`.
+#' @param view_userMatrix Optional 4x4 matrix passed to `rgl::par3d(userMatrix=)`
+#'   to fully specify the camera transform (overrides theta/phi when provided).
 #' @param return_data logical; if `TRUE`, returns a list with augmented `nodes` and `edges`
 #'   (including computed `color`, `width`, `y`, etc.) instead of just drawing. The plot is
 #'   still created. Default `FALSE`.
@@ -133,7 +176,7 @@
 #'    - `"sqrt"`: emphasizes differences at the low end,
 #'    - `"log"`: `log1p(9*t)/log(10)`, emphasizing very small values.
 #'
-#' Node elevation (`y`) is computed as `y_scale * r_norm` where `r_norm` is the node’s
+#' Node elevation (`y`) is computed as `y_scale * r_norm` where `r_norm` is the node's
 #' radial distance from its center normalized to the max within that coral. Optional jitter
 #' is added (fading to zero at the center). Root nodes (`step == 0`) that overlap are
 #' vertically stacked (with small stems drawn). Labels are rendered on top of geometry.
@@ -216,10 +259,17 @@ render_coral_rgl <- function(
     radial_expand = 1.0,
     radial_gamma  = 1.0,
     
-    y_scale = 0,        # << 0 keeps current "flat" look; try 0.5–0.8
+    y_scale = 0,
     jitter_sd    = 0.0,
     jitter_mode  = c("deterministic","random"),
     jitter_seed  = NULL,
+    
+    keep_camera = FALSE,
+    view_theta  = 0,
+    view_phi    = NULL,
+    view_fov    = 60,
+    view_zoom   = NULL,
+    view_userMatrix = NULL,
     
     return_data = FALSE
 ) {
@@ -402,12 +452,20 @@ render_coral_rgl <- function(
   
   #### draw
   if (rgl::rgl.cur() == 0) rgl::open3d()
-  rgl::par3d(windowRect = c(50, 50, 1200, 1200))
+  rgl::par3d(windowRect = c(0, 0, 1200, 800))
   phi_deg <- atan2(grid_size * 0.5, grid_size * 1.5) * 180 / pi
-  rgl::view3d(theta = 0, phi = phi_deg, fov = 60)
+  if (!isTRUE(keep_camera)) {
+    rgl::view3d(
+      theta = view_theta,
+      phi   = if (is.null(view_phi)) phi_deg else view_phi,
+      fov   = view_fov
+    )
+    if (!is.null(view_zoom))       rgl::par3d(zoom = view_zoom)
+    if (!is.null(view_userMatrix)) rgl::par3d(userMatrix = view_userMatrix)
+  }
   rgl::aspect3d(1, 1, 1)
   rgl::par3d(skipRedraw = TRUE)
-  
+
   restore_vp <- NULL
   if (isTRUE(legend) && legend_style %in% c("feature","grouped","feature_bins")) {
     vp <- rgl::par3d("viewport")                 # c(x, y, width, height) in pixels
@@ -552,7 +610,7 @@ render_coral_rgl <- function(
           # sanitize values once
           cat_raw <- as.character(nodes$category_val)
           cat_raw <- sub("^=+\\s*", "", cat_raw)
-          # subset to the exact positions you’re filling
+          # subset to the exact positions
           idx <- which(!is_num)
           txt[idx] <- ifelse(is.na(cat_raw[idx]), "", cat_raw[idx])
         } else if (label_non_numeric == "item") {
@@ -627,10 +685,10 @@ render_coral_rgl <- function(
       .fit_text <- function(s, max_w, cex) {
         s <- as.character(s); if (!nzchar(s) || !is.finite(max_w) || max_w <= 0) return(s)
         if (strwidth(s, cex = cex) <= max_w) return(s)
-        lo <- 1L; hi <- nchar(s); best <- "…"
+        lo <- 1L; hi <- nchar(s); best <- "..."
         while (lo <= hi) {
           mid  <- (lo + hi) %/% 2L
-          cand <- paste0(substr(s, 1L, mid), "…")
+          cand <- paste0(substr(s, 1L, mid), "...")
           if (strwidth(cand, cex = cex) <= max_w) { best <- cand; lo <- mid + 1L } else { hi <- mid - 1L }
         }
         best
@@ -644,7 +702,7 @@ render_coral_rgl <- function(
       x_right <- anchor[1]; y_top <- anchor[2]
       
       panel_w <- legend_panel_width
-      panel_h <- 0.88
+      panel_h <- 1
       x_left  <- x_right - panel_w
       y_bot   <- y_top   - panel_h                      # <-- define y_bot
       rect(x_left, y_bot, x_right, y_top,
@@ -654,12 +712,12 @@ render_coral_rgl <- function(
       row_cex   <- if (is.null(legend_row_cex))   0.95 * legend_cex else legend_row_cex
       
       # ---- shared geometry for all legend styles --------------------------------
-      line_h   <- max(0.020, strheight("M", cex = max(title_cex, row_cex)) * 1.25)
+      line_h   <- max(0.0175, strheight("M", cex = max(title_cex, row_cex)) * 1.25)
       top_pad  <- 0.50 * line_h                         # <-- define pads
       bot_pad  <- 0.30 * line_h
       usable_h <- panel_h - top_pad - bot_pad
       
-      # inner columns (right → left) inside fixed panel
+      # inner columns (right to left) inside fixed panel
       ncol_max <- 2L
       col_pad  <- 0.004#max(0, legend_col_gap) / 2
       col_w    <- panel_w / ncol_max
@@ -670,7 +728,7 @@ render_coral_rgl <- function(
       x_col_right <- x_right -  col_idx       * col_w - col_pad
       
       # swatch + text positions sized to column
-      sw_w    <- min(0.018, col_w * 0.35)
+      sw_w    <- min(0.01, col_w * 0.32)
       txt_gap <- min(0.006, col_w * 0.12)
       x_sw_l  <- x_col_left
       x_sw_r  <- x_sw_l + sw_w
@@ -765,7 +823,7 @@ render_coral_rgl <- function(
           add_item(f, txt, feat_cols[[norm_key(f)]] %||% "grey70")
         }
         
-        # categorical items (1 row per feature) — appended after numerics
+        # categorical items (1 row per feature) - appended after numerics
         cats_all  <- if ("kind" %in% names(nodes)) sort(unique(as.character(nodes$feature[nodes$kind == "categorical"]))) else character(0)
         cats_show <- setdiff(cats_all, unique(BL$feature))
         for (f in cats_show) {
@@ -782,12 +840,12 @@ render_coral_rgl <- function(
         ncol_needed <- max(1L, ceiling(total_lines / cap_per_col))
         ncol_max    <- min(max(2L, ncol_needed), 4L)   # allow 2..4 columns
         
-        # per-column geometry (fixed for this draw) — RIGHT-ALIGNED
+        # per-column geometry (fixed for this draw) - RIGHT-ALIGNED
         col_w  <- panel_w / ncol_max
-        sw_w   <- min(0.018, col_w * 0.32)
+        sw_w   <- min(0.01, col_w * 0.32)
         txt_gp <- min(0.008, col_w * 0.22)
         
-        # right → left columns: index 1..ncol_max (1 is rightmost)
+        # right to left columns: index 1..ncol_max (1 is rightmost)
         col_left  <- x_right - (1:ncol_max) * col_w + col_pad
         col_right <- x_right - (0:(ncol_max-1)) * col_w - col_pad
         

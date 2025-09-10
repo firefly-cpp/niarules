@@ -1,4 +1,8 @@
 #' List available RHS composite labels
+#' @param parsed A list as returned by `parse_rules()`, with components
+#'   `items` and `rules`.
+#' @param ignore_order Logical; if `TRUE` (default), items in an itemset are
+#'   sorted alphabetically before composing labels.
 #' @export
 list_rhs_labels <- function(parsed, ignore_order = TRUE) {
   stopifnot(is.list(parsed), !is.null(parsed$items), !is.null(parsed$rules))
@@ -12,6 +16,10 @@ list_rhs_labels <- function(parsed, ignore_order = TRUE) {
 }
 
 #' RHS label per rule (aligned vector)
+#' @param parsed A list as returned by `parse_rules()`, with components
+#'   `items` and `rules`.
+#' @param ignore_order Logical; if `TRUE` (default), items in an itemset are
+#'   sorted alphabetically before composing labels.
 #' @export
 rhs_label_per_rule <- function(parsed, ignore_order = TRUE) {
   ids_to_label <- function(ids) {
@@ -23,6 +31,12 @@ rhs_label_per_rule <- function(parsed, ignore_order = TRUE) {
 }
 
 #' Filter parsed object to a single RHS and remap item ids to 0..K-1
+#' @param parsed A list as returned by `parse_rules()`.
+#' @param rhs_label Character; the composite RHS label to filter by, e.g.
+#'   `"Milk + Bread"`. Must match the formatting used by
+#'   `rhs_label_per_rule(ignore_order = TRUE/FALSE)`.
+#' @param ignore_order Logical; treat RHS itemsets as unordered when matching
+#'   `rhs_label` if `TRUE`.
 #' @export
 filter_parsed_by_rhs <- function(parsed, rhs_label, ignore_order = TRUE) {
   labs <- rhs_label_per_rule(parsed, ignore_order = ignore_order)
@@ -40,6 +54,11 @@ filter_parsed_by_rhs <- function(parsed, rhs_label, ignore_order = TRUE) {
 }
 
 #' Stable node color map (HCL)
+#' @param parsed A list as returned by `parse_rules()`.
+#' @param by Character; color mapping domain. One of `"type"` (feature) or
+#'   `"item"` (item label).
+#' @param hcl_c Numeric chroma value passed to `grDevices::hcl()`.
+#' @param hcl_l Numeric luminance value passed to `grDevices::hcl()`.
 #' @export
 make_node_color_map <- function(parsed, by = c("type","item"), hcl_c = 65, hcl_l = 70) {
   by <- match.arg(by)

@@ -18,6 +18,11 @@
 #' @param lhs_sort_metric character; how to order items **within each LHS path**
 #'   when building the layout. One of `"confidence"`, `"support"`, `"lift"`.
 #'   Typically interpreted as **descending** by the chosen metric.
+#' @param bin_breaks Optional named list of numeric break vectors used to bin numeric features
+#'   (e.g., `list(Age = c(0, 18, 30, 50, Inf))`). If `NULL`, bins are inferred later
+#'   (and may be provided to the renderer via `bin_legend`).
+#' @param bin_digits Integer number of decimal places used when formatting numeric
+#'   interval labels (e.g., `[0.405,0.485)`). Default is `3`.
 #'
 #' @details
 #' **Grid sizing.** The number of corals (`n_plots`) is computed as the number of

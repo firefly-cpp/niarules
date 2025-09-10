@@ -6,6 +6,16 @@
 \usage{
 filter_parsed_by_rhs(parsed, rhs_label, ignore_order = TRUE)
 }
+\arguments{
+\item{parsed}{A list as returned by `parse_rules()`.}
+
+\item{rhs_label}{Character; the composite RHS label to filter by, e.g.
+`"Milk + Bread"`. Must match the formatting used by
+`rhs_label_per_rule(ignore_order = TRUE/FALSE)`.}
+
+\item{ignore_order}{Logical; treat RHS itemsets as unordered when matching
+`rhs_label` if `TRUE`.}
+}
 \description{
 Filter parsed object to a single RHS and remap item ids to 0..K-1
 }

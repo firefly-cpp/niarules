@@ -31,7 +31,4 @@ niarules::render_coral_rgl(
   node_color_by        = "type",
   node_gradient        = c("#204060","#5B8BB5","#D7E6F2","#F5D0C6","#E57373","#991C1C")
 )
-rgl::view3d(theta = -32, phi = 16, fov = 22, zoom = 0.95)
-rgl::par3d(antialias = 8)
-
 rgl::rgl.snapshot("test2.png", fmt = "png", top = TRUE)

@@ -6,6 +6,13 @@
 \usage{
 rhs_label_per_rule(parsed, ignore_order = TRUE)
 }
+\arguments{
+\item{parsed}{A list as returned by `parse_rules()`, with components
+`items` and `rules`.}
+
+\item{ignore_order}{Logical; if `TRUE` (default), items in an itemset are
+sorted alphabetically before composing labels.}
+}
 \description{
 RHS label per rule (aligned vector)
 }

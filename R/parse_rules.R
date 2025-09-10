@@ -1,3 +1,40 @@
+.normalize_metric_columns <- function(df) {
+  # canonical names we want downstream:
+  #   support, confidence, lift  (all lower-case in layout$edges)
+  alias_map <- list(
+    support    = c("Support", "support", "supp"),
+    confidence = c("Confidence", "confidence", "conf"),
+    lift       = c("Lift", "lift", "Fitness", "fitness")
+  )
+  
+  # helper: copy first existing alias into canonical name
+  adopt <- function(canon) {
+    al <- alias_map[[canon]]
+    hit <- al[al %in% names(df)]
+    if (length(hit)) {
+      if (!canon %in% names(df)) df[[canon]] <- df[[hit[1L]]]
+      # if both canon and alias exist but disagree, warn
+      if (length(hit) > 1L) {
+        for (h in hit[-1L]) {
+          if (!all(is.na(df[[h]]) | is.na(df[[canon]]) | df[[canon]] == df[[h]])) {
+            warning(sprintf("Conflicting values for '%s' and '%s'; using '%s'.", hit[1L], h, canon),
+                    call. = FALSE)
+          }
+        }
+      }
+    }
+  }
+  
+  adopt("support"); adopt("confidence"); adopt("lift")
+  
+  # Friendly warnings for legacy columns (soft deprecation)
+  if ("Fitness" %in% names(df) && !"lift" %in% names(df)) {
+    warning("Column 'Fitness' is accepted for backward compatibility; prefer 'lift'.",
+            call. = FALSE)
+  }
+  df
+}
+
 #' @title Parse association rules into a reusable, layout-agnostic structure
 #'
 #' @description
@@ -58,6 +95,8 @@ parse_rules <- function(arules = NULL) {
     niarules::write_association_rules_to_csv(arules, file = tmp_csv, is_time_series = FALSE)
     rules_df <- utils::read.csv(tmp_csv, stringsAsFactors = FALSE)
   }
+  
+  rules_df <- .normalize_metric_columns(rules_df)   # ← add this line
   
   missing <- setdiff(required_cols, names(rules_df))
   if (length(missing)) {

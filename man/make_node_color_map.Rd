@@ -6,6 +6,16 @@
 \usage{
 make_node_color_map(parsed, by = c("type", "item"), hcl_c = 65, hcl_l = 70)
 }
+\arguments{
+\item{parsed}{A list as returned by `parse_rules()`.}
+
+\item{by}{Character; color mapping domain. One of `"type"` (feature) or
+`"item"` (item label).}
+
+\item{hcl_c}{Numeric chroma value passed to `grDevices::hcl()`.}
+
+\item{hcl_l}{Numeric luminance value passed to `grDevices::hcl()`.}
+}
 \description{
 Stable node color map (HCL)
 }

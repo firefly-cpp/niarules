@@ -4,7 +4,12 @@
 \alias{build_coral_plots}
 \title{Build coral plot layout (nodes + edges) from a parsed rules object}
 \usage{
-build_coral_plots(parsed, lhs_sort_metric = c("confidence", "support", "lift"))
+build_coral_plots(
+  parsed,
+  lhs_sort_metric = c("confidence", "support", "lift"),
+  bin_breaks = NULL,
+  bin_digits = 3
+)
 }
 \arguments{
 \item{parsed}{A list as returned by `parse_rules()`, containing components
@@ -13,6 +18,13 @@ build_coral_plots(parsed, lhs_sort_metric = c("confidence", "support", "lift"))
 \item{lhs_sort_metric}{character; how to order items **within each LHS path**
 when building the layout. One of `"confidence"`, `"support"`, `"lift"`.
 Typically interpreted as **descending** by the chosen metric.}
+
+\item{bin_breaks}{Optional named list of numeric break vectors used to bin numeric features
+(e.g., `list(Age = c(0, 18, 30, 50, Inf))`). If `NULL`, bins are inferred later
+(and may be provided to the renderer via `bin_legend`).}
+
+\item{bin_digits}{Integer number of decimal places used when formatting numeric
+interval labels (e.g., `[0.405,0.485)`). Default is `3`.}
 }
 \value{
 A list with components:
