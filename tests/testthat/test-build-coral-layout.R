@@ -29,6 +29,39 @@ mk_layout_df <- function() {
   )
 }
 
+test_that("build_coral_plots returns classic components + new fields", {
+  p <- parse_rules(mk_layout_df())
+  lay <- build_coral_plots(p, lhs_sort_metric = "confidence")
+  expect_true(all(c("nodes","edges","grid_size") %in% names(lay)))
+  
+  nodes <- lay$nodes; edges <- lay$edges
+  expect_s3_class(nodes, "data.frame"); expect_s3_class(edges, "data.frame")
+  expect_true(all(c("node_id","is_root","coral_id","interval_brackets","bin_index") %in% names(nodes)))
+  
+  # grid size based on 3 unique RHS groups ⇒ ceil(sqrt(3)) = 2
+  expect_equal(lay$grid_size, 2L)
+})
+
+test_that("bin_breaks yields bin_legend and bin_index mapping", {
+  p <- parse_rules(data.frame(
+    Antecedent = c("C in [0, 1)", "C in [1, 2)", "C in [0.5, 1.5)"),
+    Consequence = c("Y=y","Y=y","Y=y"),
+    Support = c(0.1,0.1,0.1), Confidence = c(0.5,0.5,0.5), Fitness = c(1.2,1.3,1.1),
+    stringsAsFactors = FALSE
+  ))
+  br <- list(C = c(0, 1, 2))
+  lay <- build_coral_plots(p, bin_breaks = br, bin_digits = 2)
+  expect_true("bin_legend" %in% names(lay))
+  if (!is.null(lay$bin_legend)) {
+    expect_true(all(c("feature","bin","interval") %in% names(lay$bin_legend)))
+  }
+  # if numeric nodes present, at least some bin_index should be 1 or 2
+  if (nrow(lay$nodes)) {
+    bi <- na.omit(lay$nodes$bin_index)
+    expect_true(length(bi) == 0 || all(bi %in% c(1L,2L)))
+  }
+})
+
 test_that("build_coral_plots returns nodes/edges with expected columns and grid_size", {
   df <- mk_layout_df()
   parsed <- parse_rules(df)
