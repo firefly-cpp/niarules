@@ -1,7 +1,7 @@
 #' @title Build coral plot layout (nodes + edges) from a parsed rules object
 #'
 #' @description
-#' Produces the node and edge layout consumed by `render_coral_rgl()`.
+#' Produces the node and edge layout consumed by `render_coral_rgl()` or `render_coral_rgl_experimental()`.
 #' Given a parsed association-rules object (from `parse_rules()`), this function
 #' groups rules by RHS itemset (one coral per unique RHS), arranges those corals
 #' on a square grid, and emits geometry and metadata for drawing.
@@ -37,7 +37,8 @@
 #'
 #' **Output schema (for `render_coral_rgl()`).**
 #' - `nodes` includes (at least): `x`, `z`, `x_offset`, `z_offset`, `radius`,
-#'   `path` (character key), and optionally `item`, `feature`, `step`,
+#'   `path` (character key), `node_id`, `is_root`, `coral_id`, `interval_brackets`, `bin_index`
+#'    and optionally `item`, `feature`, `step`,
 #'   `interval_label`, `interval_label_short`.
 #' - `edges` includes (at least): `x`, `y`, `z`, `x_end`, `y_end`, `z_end`,
 #'   `parent_path`, `child_path`, and the rule metrics `support`, `confidence`, `lift`.
@@ -52,6 +53,7 @@
 #' - `nodes`: `data.frame` of node geometry and labels,
 #' - `edges`: `data.frame` of edge geometry and attached metrics,
 #' - `grid_size`: integer grid side length used to arrange corals.
+#' - `bin_legend`: data.frame (or NULL) mapping feature -> bin index -> interval.
 #'
 #' @export
 build_coral_plots <- function(
@@ -69,7 +71,7 @@ build_coral_plots <- function(
   
   # figure out grid size = sqrt(unique RHS-combos)
   # (recompose the RHS label per rule by joining the item labels)
-  lab_by_id <- setNames(items$label, items$item_id)
+  lab_by_id <- stats::setNames(items$label, items$item_id)
   rhs_labels <- vapply(seq_len(nrow(rules)), function(i) {
     ids <- unlist(rules$rhs_item_ids[[i]], use.names = FALSE)
     if (length(ids) == 0L) "" else paste(lab_by_id[as.character(ids)], collapse = ", ")
@@ -87,7 +89,6 @@ build_coral_plots <- function(
   # pass through and attach computed grid_size for the renderer
   out$grid_size <- grid_size
   
-  # --- ENRICH NODES -----------------------------------------------------------
   nodes <- out$nodes
   if (!nrow(nodes)) {
     out$grid_size <- grid_size
@@ -102,16 +103,6 @@ build_coral_plots <- function(
     return(out)
   }
   
-  # stable id (useful to align with render_coral_rgl(return_data=TRUE))
-  nodes$node_id <- seq_len(nrow(nodes))
-  
-  # convenience flags/keys
-  nodes$is_root <- if ("step" %in% names(nodes)) nodes$step == 0L else FALSE
-  nodes$coral_id <- paste0(
-    sprintf("%.6f", nodes$x_offset), "_", sprintf("%.6f", nodes$z_offset)
-  )
-  
-  # bracket-only text for numeric items (e.g., "[0.405,0.485)")
   .fmt_iv <- function(lo, hi, inc_lo, inc_hi, digits = 3) {
     if (!is.finite(lo) && !is.finite(hi)) return(NA_character_)
     lbr <- if (isTRUE(inc_lo)) "[" else "("
@@ -125,20 +116,31 @@ build_coral_plots <- function(
     )
   }
   
-  is_num <- !is.null(nodes$kind) & nodes$kind == "numeric"
+  # stable id
+  nodes$node_id <- seq_len(nrow(nodes))
+  
+  # convenience flags/keys
+  nodes$is_root <- if ("step" %in% names(nodes)) nodes$step == 0L else FALSE
+  nodes$coral_id <- paste0(sprintf("%.6f", nodes$x_offset), "_", sprintf("%.6f", nodes$z_offset))
+  
+  # choose feature column name that exists
+  feature_col <- if ("feature" %in% names(nodes)) "feature" else
+    if ("base_feature_name" %in% names(nodes)) "base_feature_name" else NULL
+  
+  # bracket-only text for numeric items (e.g., "[0.405,0.485)")
+  .is_num <- if ("kind" %in% names(nodes)) nodes$kind == "numeric" else rep(FALSE, nrow(nodes))
   nodes$interval_brackets <- NA_character_
   if (all(c("interval_low","interval_high","incl_low","incl_high") %in% names(nodes))) {
-    nodes$interval_brackets[is_num] <- mapply(
+    nodes$interval_brackets[.is_num] <- mapply(
       .fmt_iv,
-      nodes$interval_low[is_num],
-      nodes$interval_high[is_num],
-      nodes$incl_low[is_num],
-      nodes$incl_high[is_num],
+      nodes$interval_low[.is_num],
+      nodes$interval_high[.is_num],
+      nodes$incl_low[.is_num],
+      nodes$incl_high[.is_num],
       MoreArgs = list(digits = bin_digits)
     )
   }
   
-  # --- OPTIONAL: per-node bin_index + a bin_legend we can pass downstream -----
   .legend_from_breaks <- function(br, digits = 3) {
     if (length(br) < 2) return(NULL)
     data.frame(
@@ -157,29 +159,30 @@ build_coral_plots <- function(
   bin_legend <- NULL
   nodes$bin_index <- NA_integer_
   
-  if (is.list(bin_breaks) && length(bin_breaks)) {
-    # build a combined legend first
-    bl <- lapply(names(bin_breaks), function(f) {
-      L <- .legend_from_breaks(sort(unique(as.numeric(bin_breaks[[f]]))), digits = bin_digits)
+  if (is.list(bin_breaks) && length(bin_breaks) && !is.null(feature_col)) {
+    # build legend
+    bl <- lapply(intersect(names(bin_breaks), unique(nodes[[feature_col]][.is_num])), function(f) {
+      br <- sort(unique(as.numeric(bin_breaks[[f]])))
+      L <- .legend_from_breaks(br, digits = bin_digits)
       if (is.null(L)) return(NULL)
       L$feature <- f
       L
     })
-    bin_legend <- do.call(rbind, bl)
+    bin_legend <- if (length(Filter(Negate(is.null), bl))) do.call(rbind, bl) else NULL
     
-    # fast numeric bin mapping by midpoint & findInterval (left-closed, right-open)
-    mid <- (nodes$interval_low + nodes$interval_high) / 2
-    for (f in intersect(names(bin_breaks), unique(nodes$feature[is_num]))) {
-      br <- sort(unique(as.numeric(bin_breaks[[f]])))
-      if (length(br) < 2) next
-      idx <- is_num & nodes$feature == f & is.finite(mid)
-      nodes$bin_index[idx] <- findInterval(mid[idx], br, left.open = FALSE, rightmost.closed = FALSE)
-      # findInterval gives 0..(K-1); keep 1..(K-1) and drop out-of-range as NA
-      nodes$bin_index[idx] <- ifelse(
-        nodes$bin_index[idx] %in% seq_len(length(br) - 1L),
-        nodes$bin_index[idx],
-        NA_integer_
-      )
+    # map to bin_index by midpoint
+    if (!is.null(bin_legend)) {
+      mid <- (nodes$interval_low + nodes$interval_high) / 2
+      for (f in unique(bin_legend$feature)) {
+        br <- sort(unique(as.numeric(bin_breaks[[f]])))
+        if (length(br) < 2) next
+        idx <- .is_num & nodes[[feature_col]] == f & is.finite(mid)
+        nodes$bin_index[idx] <- findInterval(mid[idx], br, left.open = FALSE, rightmost.closed = FALSE)
+        nodes$bin_index[idx] <- ifelse(
+          nodes$bin_index[idx] %in% seq_len(length(br) - 1L),
+          nodes$bin_index[idx], NA_integer_
+        )
+      }
     }
   }
   

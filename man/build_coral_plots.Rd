@@ -31,9 +31,10 @@ A list with components:
 - `nodes`: `data.frame` of node geometry and labels,
 - `edges`: `data.frame` of edge geometry and attached metrics,
 - `grid_size`: integer grid side length used to arrange corals.
+- `bin_legend`: data.frame (or NULL) mapping feature -> bin index -> interval.
 }
 \description{
-Produces the node and edge layout consumed by `render_coral_rgl()`.
+Produces the node and edge layout consumed by `render_coral_rgl()` or `render_coral_rgl_experimental()`.
 Given a parsed association-rules object (from `parse_rules()`), this function
 groups rules by RHS itemset (one coral per unique RHS), arranges those corals
 on a square grid, and emits geometry and metadata for drawing.
@@ -58,7 +59,8 @@ computed `grid_size`, and the chosen `lhs_sort_metric`.
 
 **Output schema (for `render_coral_rgl()`).**
 - `nodes` includes (at least): `x`, `z`, `x_offset`, `z_offset`, `radius`,
-  `path` (character key), and optionally `item`, `feature`, `step`,
+  `path` (character key), `node_id`, `is_root`, `coral_id`, `interval_brackets`, `bin_index`
+   and optionally `item`, `feature`, `step`,
   `interval_label`, `interval_label_short`.
 - `edges` includes (at least): `x`, `y`, `z`, `x_end`, `y_end`, `z_end`,
   `parent_path`, `child_path`, and the rule metrics `support`, `confidence`, `lift`.

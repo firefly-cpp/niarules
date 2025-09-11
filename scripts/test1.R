@@ -43,4 +43,4 @@ niarules::render_coral_rgl(
   node_color_by = "type",
   node_gradient   = c(lhs1="#9E3D3D", lhs2="#006D77", lhs3="#8A5FBF", lhs4="#6E8000"),
 )
-rgl::rgl.snapshot("test1.png", fmt = "png", top = TRUE)
+#rgl::rgl.snapshot("test1.png", fmt = "png", top = TRUE)

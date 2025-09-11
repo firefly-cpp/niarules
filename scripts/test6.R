@@ -53,20 +53,26 @@ df <- data.frame(
   Fitness        = as.numeric(q$lift),
   check.names = FALSE
 )
-parsed <- niarules::parse_rules(df)
-layout <- niarules::build_coral_plots(parsed, lhs_sort_metric = "confidence")
 
-# render (kept your choices)
-niarules::render_coral_rgl(
-  layout$nodes, layout$edges, layout$grid_size,
-  label_mode = "interval_short", max_labels = 0,#nrow(layout$nodes),
-  #theme = "flat",
-  edge_width_metric    = "support",    edge_width_transform = "sqrt",
-  edge_width_range     = c(1, 6),
-  edge_color_metric    = "lift",       edge_color_transform = "sqrt",
-  edge_gradient        = c("#2c7bb6", "#f7f7f7", "#d7191c"),
-  edge_alpha_metric    = "confidence", edge_alpha_range = c(0.2, 1),
-  node_color_by        = "item",
-  y_scale = 0.18, jitter_sd = 0.02, jitter_mode = "random", jitter_seed = 1248
+parsed <- niarules::parse_rules(df)
+layout <- niarules::build_coral_plots(parsed)
+
+feat_levels <- sort(unique(na.omit(layout$nodes$feature)))
+pal_nodes <- grDevices::hcl.colors(length(feat_levels), "Purple-Yellow")
+names(pal_nodes) <- feat_levels
+
+pal_edges <- c("#2166ac", "#f0f0f0", "#b2182b")
+
+out <- niarules::render_coral_rgl(
+  nodes = layout$nodes, edges = layout$edges, grid_size = layout$grid_size,
+  legend = TRUE, y_scale = 0.2,
+  node_color_by = "type", node_gradient = pal_nodes,
+  node_gradient_map = "even",
+  edge_width_metric = "support", edge_width_transform = "sqrt",
+  edge_width_range = c(2, 8),
+  edge_color_metric = "lift", edge_color_transform = "log",
+  edge_gradient = pal_edges,
+  edge_alpha_metric = "confidence", edge_alpha_transform = "linear",
+  edge_alpha_range = c(0.35, 1) 
 )
-#rgl::rgl.snapshot("test4.png", fmt = "png", top = TRUE)
+#rgl::rgl.snapshot("test6.png", top=TRUE)

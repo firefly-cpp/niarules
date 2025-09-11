@@ -1,4 +1,15 @@
-#' @keywords internal
+#' Available themes (experimental)
+#' @description `r lifecycle::badge('experimental')`
+#' @return character vector of theme names
+#' @export
+coral_list_themes <- function() c("default", "studio", "flat", "dark", "none")
+
+#' Get a theme object (experimental)
+#' @description `r lifecycle::badge('experimental')`
+#' @param name one of coral_list_themes()
+#' @param overrides named list to tweak values
+#' @return an object of class 'coral_theme'
+#' @export
 coral_get_theme <- function(name = c("default", "studio", "flat", "dark", "none"),
                             overrides = NULL) {
   name <- match.arg(name)
@@ -77,6 +88,7 @@ coral_get_theme <- function(name = c("default", "studio", "flat", "dark", "none"
 }
 
 #' @keywords internal
+#' @noRd
 coral_apply_theme <- function(theme) {
   # background
   if (!is.null(theme$background)) rgl::bg3d(color = theme$background)

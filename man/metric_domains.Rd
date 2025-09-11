@@ -3,21 +3,22 @@
 \name{metric_domains}
 \alias{metric_domains}
 \alias{metric_domains.parsed}
-\alias{metric_domains.edges}
 \alias{metric_domains.data.frame}
-\title{Compute domains (ranges) of rule metrics}
+\alias{metric_domains.default}
+\title{Compute metric domains (experimental)}
 \usage{
 metric_domains(x, ...)
 
 \method{metric_domains}{parsed}(x, ...)
 
-\method{metric_domains}{edges}(x, ...)
-
 \method{metric_domains}{data.frame}(x, ...)
+
+\method{metric_domains}{default}(x, ...)
 }
 \arguments{
 \item{x}{An object containing rule metrics. Methods are provided for
-objects of class `parsed`, `edges`, and for a `data.frame`.}
+objects of class `parsed`, and for a `data.frame`.
+(Optionally also for class `niarules_edges` if you tag it.)}
 
 \item{...}{Passed to methods (currently unused).}
 }
@@ -26,6 +27,8 @@ A named list with numeric vectors of length 2:
   `list(support = c(min, max), confidence = c(min, max), lift = c(min, max))`.
 }
 \description{
-Returns numeric ranges \[min, max\] for the metrics `support`, `confidence`,
+`r lifecycle::badge('experimental')`
+
+Returns numeric ranges [min, max] for the metrics `support`, `confidence`,
 and `lift` from various input types.
 }

@@ -72,7 +72,7 @@ static inline std::string fmt_num(double v, int digits = 3) {
     return s;
 }
 
-// very close to your R logic
+// very close to R logic
 static ParsedItem parse_interval_info(std::string item_label) {
     ParsedItem out;
     item_label = trim_copy(item_label);
@@ -118,7 +118,7 @@ static ParsedItem parse_interval_info(std::string item_label) {
                         out.interval_label = feat + " " + item_label.substr(open, close - open + 1);
                         out.interval_label_short =
                             out.type + " " + (out.incl_low ? "[" : "(") + fmt_num(out.low) + ", " + fmt_num(out.high) + (out.incl_high ? "]" : ")");
-                        out.rel_op = "=";
+                        out.rel_op = "in";
                         return out;
                     }
                     catch (...) {}

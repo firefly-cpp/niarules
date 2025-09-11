@@ -75,9 +75,9 @@ bin_breaks <- setNames(
 
 layout <- niarules::build_coral_plots(
   parsed,
-  lhs_sort_metric = "confidence",
-  bin_breaks = bin_breaks,
-  bin_digits = 3
+  lhs_sort_metric = "confidence"
+  #bin_breaks = bin_breaks,
+  #bin_digits = 3
 )
 
 L <- layout$edges$lift
@@ -86,7 +86,7 @@ m <- max(abs(log(L)))                  # use the extremes, not quantiles
 if (!is.finite(m) || m == 0) m <- 0.10 # ensure some spread
 dom_lift_sym <- exp(c(-m, m))          # symmetric around lift=1
 
-dom <- niarules::metric_domains(layout$edges)
+#dom <- niarules::metric_domains(layout$edges)
 
 feat_levels <- sort(unique(na.omit(layout$nodes$feature)))
 
@@ -98,73 +98,36 @@ edge_pal <- c("#2166ac", "#f0f0f0", "#b2182b")
 out <- niarules::render_coral_rgl(
   
   layout$nodes, layout$edges, layout$grid_size,
-  
-  grid_outline = FALSE,
-  
-  theme = "default",
-  theme_overrides = NULL,
-  apply_theme = TRUE,
-  
+
   legend = TRUE,
-  legend_style = "feature_bins",
-  legend_panel_width = 0.3,
-  legend_panel_margin = 0.0001,
-  legend_reserve = 0.3,
-  legend_title_cex = 0.9, 
-  legend_row_cex = 0.75,
-  legend_pos = "custom",
-  legend_xy = c(1.025, 1.0),
-  legend_col_gap = 0.02,
   
-  legend_cex = 1.0,
-  legend_items_per_feature = 6L,
-  legend_features_max = 10L,
-  
-  bin_label_fmt = "index",
-  bin_legend = layout$bin_legend,
-  bin_breaks = NULL,
-  bin_infer = TRUE,
-  
-  label_mode = "bin",
-  label_non_numeric = "category",
+  label_mode = "item",
   label_offset = -0.5,
-  label_color = "black",
   max_labels = nrow(layout$nodes),
   label_cex = 0.6,
 
   node_color_by = "type",
   node_gradient = pal_plasma,
   node_gradient_map = "even",
-  node_scale = 1.5,
-  
+
   edge_width_metric = "support",
   edge_width_transform = "sqrt",
   edge_width_range = c(2, 8),
-  edge_width_domain = dom$support,
-  
+
   edge_color_metric = "lift",
   edge_color_transform = "log",
   edge_gradient = edge_pal,
-  edge_color_domain = dom_lift_sym,
-  
+
   edge_alpha_metric = "confidence",
   edge_alpha_transform = "linear",
   edge_alpha_range = c(0.35, 1),
-  edge_alpha_domain = dom$confidence,
-  
-  radial_gamma = 0.9,
-  radial_expand = 1.5,
-  
+
   y_scale = 0.2,
   jitter_sd = 0.02,
   jitter_mode = "random",
   jitter_seed = 1248,
   
-  view_zoom = 0.65,
-  view_theta = 0,
-  view_phi = 45,
-  
   return_data = TRUE
 )
 
-rgl::rgl.snapshot("test5.png", top=TRUE)
+#rgl::rgl.snapshot("test5.png", top=TRUE)
