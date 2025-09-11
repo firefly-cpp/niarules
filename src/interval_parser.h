@@ -1,4 +1,4 @@
-﻿#ifndef INTERVAL_PARSER
+#ifndef INTERVAL_PARSER
 #define INTERVAL_PARSER
 
 #include "string_splitter.h"
@@ -72,7 +72,7 @@ static inline std::string fmt_num(double v, int digits = 3) {
     return s;
 }
 
-// very close to your R logic
+// very close to R logic
 static ParsedItem parse_interval_info(std::string item_label) {
     ParsedItem out;
     item_label = trim_copy(item_label);
@@ -99,9 +99,9 @@ static ParsedItem parse_interval_info(std::string item_label) {
             if (item_label[i] == '(' || item_label[i] == '[') { open = i; open_chr = item_label[i]; break; }
         }
         if (open != std::string::npos) {
-            close_chr = (open_chr == '(') ? ')' : ']';
+          // accept EITHER kind of closing bracket for mixed intervals ([lo,hi) or (lo,hi])
             for (size_t i = item_label.size(); i-- > 0; ) {
-                if (item_label[i] == close_chr) { close = i; break; }
+                if (item_label[i] == ']' || item_label[i] == ')') { close = i; close_chr = item_label[i]; break; }
             }
             if (close != std::string::npos && close > open) {
                 auto inside = item_label.substr(open + 1, close - open - 1);
@@ -174,8 +174,14 @@ static ParsedItem parse_interval_info(std::string item_label) {
         if (pos_in != std::string::npos || pos_pct != std::string::npos) {
             size_t pos = (pos_in != std::string::npos) ? pos_in : pos_pct;
             auto left = trim_copy(item_label.substr(0, pos));
-            auto rest = trim_copy(item_label.substr(pos + ((pos_in != std::string::npos) ? 4 : 4))); // both 4 chars incl spaces/%
-            // expect {...}
+            auto rest = trim_copy(item_label.substr(pos + 4)); // both tokens are length 4
+            // If RHS starts with '[' or '(', treat as numeric interval (no extra braces)
+            if (!rest.empty() && (rest.front() == '[' || rest.front() == '(')) {
+            // Recurse locally by faking a label "<left> <rest>"
+                auto fake = left + " " + rest;
+                return parse_interval_info(fake);
+            }
+            // Otherwise expect {...} and keep set-notation
             auto vals = strip_outer_braces(rest);
             out.kind = "categorical"; out.type = left;
             out.category_val = vals; // raw

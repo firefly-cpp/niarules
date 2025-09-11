@@ -24,6 +24,42 @@ mk_rules_df <- function() {
   )
 }
 
+test_that("parse_rules accepts lift/Fitness aliases and tags class", {
+  df <- data.frame(
+    Antecedent = "A = a", Consequence = "Y = y",
+    support = 0.1, Confidence = 0.5, lift = 1.2,
+    stringsAsFactors = FALSE
+  )
+  p <- parse_rules(df)
+  expect_s3_class(p, "parsed")
+  expect_true(all(c("items","rules") %in% names(p)))
+  expect_true(all(c("support","confidence","lift") %in% names(p$rules)))
+})
+
+test_that("LHS '{A,B}' is split into two items", {
+  df <- data.frame(
+    Antecedent = "{A = a, B = b}", Consequence = "Y = y",
+    Support = 0.2, Confidence = 0.9, Fitness = 2.2,
+    stringsAsFactors = FALSE
+  )
+  p <- parse_rules(df)
+  expect_length(p$rules$lhs_item_ids[[1]], 2)
+})
+
+test_that("numeric intervals use rel_op 'in' (mixed brackets ok)", {
+  df <- data.frame(
+    Antecedent = c("[0,1)", "(2,3]"),
+    Consequence = c("Y = y", "Y = y"),
+    Support = c(0.1, 0.1), Confidence = c(0.5, 0.5), Fitness = c(1.2, 1.3),
+    stringsAsFactors = FALSE
+  )
+  p <- parse_rules(df)
+  it <- p$items
+  ops <- unique(it$op[it$kind == "numeric"])
+  expect_true(length(ops) >= 1)
+  expect_true(all(ops == "in"))
+})
+
 test_that("parse_rules accepts data.frame and returns expected top-level structure", {
   df <- mk_rules_df()
   parsed <- parse_rules(df)

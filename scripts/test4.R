@@ -1,0 +1,72 @@
+library(readr)
+library(arules)
+library(niarules)
+
+set.seed(1248)
+
+# data
+path <- system.file("extdata", "Abalone.csv", package = "niarules")
+abalone <- readr::read_csv(path, show_col_types = FALSE)
+names(abalone) <- c("Sex","Length","Diameter","Height",
+                    "WholeWeight","ShuckedWeight","VisceraWeight",
+                    "ShellWeight","Rings")
+abalone$Sex   <- factor(abalone$Sex)
+abalone$Rings <- factor(abalone$Rings)
+
+# discretize: equal-frequency bins
+disc <- arules::discretizeDF(abalone, default = list(method = "frequency", breaks = 6))
+tr <- as(disc, "transactions")
+rhs_labs <- grep("^Rings=", arules::itemLabels(tr), value = TRUE)
+
+# mine (and de-redundant)
+rules <- arules::apriori(
+  tr,
+  parameter = list(supp = 0.002, conf = 0.4, minlen = 2, maxlen = 5),
+  appearance = list(rhs = rhs_labs, default = "lhs"),
+  control = list(verbose = FALSE)
+)
+rules <- rules[!arules::is.redundant(rules)]
+stopifnot(length(rules) > 0L)
+
+rhs_txt <- sub("^\\{(.*)\\}$","\\1", arules::labels(arules::rhs(rules)))
+rules <- rules#[rhs_txt == "Rings=9"]  # select the ring we're interested in
+rules
+
+q  <- arules::quality(rules)
+lhs <- sub("^\\{(.*)\\}$","\\1", arules::labels(arules::lhs(rules)))
+rhs <- sub("^\\{(.*)\\}$","\\1", arules::labels(arules::rhs(rules)))
+df <- data.frame(
+  Antecedent  = lhs,
+  Consequence = rhs,
+  Support     = as.numeric(q$support),
+  Confidence  = as.numeric(q$confidence),
+  Fitness     = as.numeric(q$lift),
+  check.names = FALSE
+)
+
+# build parse df (no CSV), strip braces
+df <- data.frame(
+  Antecedent  = sub("^\\{(.*)\\}$", "\\1", labels(lhs(rules))),
+  Consequence = sub("^\\{(.*)\\}$", "\\1", labels(rhs(rules))),
+  Support     = as.numeric(q$support),
+  Confidence  = as.numeric(q$confidence),
+  Fitness        = as.numeric(q$lift),
+  check.names = FALSE
+)
+parsed <- niarules::parse_rules(df)
+layout <- niarules::build_coral_plots(parsed, lhs_sort_metric = "confidence")
+
+# render (kept your choices)
+niarules::render_coral_rgl(
+  layout$nodes, layout$edges, layout$grid_size,
+  label_mode = "interval_short", max_labels = 0,#nrow(layout$nodes),
+  #theme = "flat",
+  edge_width_metric    = "support",    edge_width_transform = "sqrt",
+  edge_width_range     = c(1, 6),
+  edge_color_metric    = "lift",       edge_color_transform = "sqrt",
+  edge_gradient        = c("#2c7bb6", "#f7f7f7", "#d7191c"),
+  edge_alpha_metric    = "confidence", edge_alpha_range = c(0.2, 1),
+  node_color_by        = "item",
+  y_scale = 0.18, jitter_sd = 0.02, jitter_mode = "random", jitter_seed = 1248
+)
+#rgl::rgl.snapshot("test4.png", fmt = "png", top = TRUE)

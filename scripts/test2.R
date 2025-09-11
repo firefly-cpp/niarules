@@ -31,5 +31,4 @@ niarules::render_coral_rgl(
   node_color_by        = "type",
   node_gradient        = c("#204060","#5B8BB5","#D7E6F2","#F5D0C6","#E57373","#991C1C")
 )
-
-if (isTRUE(getOption("rgl.useNULL"))) rgl::rglwidget() #if rgl somehow got into null device state
+#rgl::rgl.snapshot("test2.png", fmt = "png", top = TRUE)

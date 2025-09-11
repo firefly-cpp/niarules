@@ -48,6 +48,8 @@ layout  <- niarules::build_coral_plots(parsed, lhs_sort_metric = "confidence")
 
 niarules::render_coral_rgl(
   layout$nodes, layout$edges, layout$grid_size,
+  label_mode = "item",
+  max_labels = 0,
   edge_width_metric    = "confidence",
   edge_width_range     = c(1, 4),
   edge_width_transform = "log",
@@ -61,5 +63,4 @@ niarules::render_coral_rgl(
   node_gradient        = c("#204060","#5B8BB5","#D7E6F2","#F5D0C6","#E57373","#991C1C"),
   y_scale = 0.15, jitter_sd = 0.015, jitter_mode = "random", jitter_seed = 1000
 )
-
-if (isTRUE(getOption("rgl.useNULL"))) rgl::rglwidget() #if rgl somehow got into null device state
+#rgl::rgl.snapshot("test0.png", fmt = "png", top = TRUE)

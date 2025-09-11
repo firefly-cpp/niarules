@@ -74,9 +74,6 @@ niarules::render_coral_rgl(
   grid_color = "grey80",
   legend     = FALSE,
   label_mode   = "none",
-  #label_cex    = 0.7,
-  #label_offset = 1.5,
-  #max_labels   = 100,
   edge_width_metric    = "support",
   edge_width_range     = c(4, 8),
   edge_width_transform = "linear",
@@ -90,5 +87,4 @@ niarules::render_coral_rgl(
   node_gradient   = c(lhs1="#9E3D3D", lhs2="#006D77", lhs3="#8A5FBF", lhs4="#6E8000"),
   y_scale = 0.15, jitter_sd = 0.015, jitter_mode = "deterministic"
 )
-
-if (isTRUE(getOption("rgl.useNULL"))) rgl::rglwidget() #if rgl somehow got into null device state
+#rgl::rgl.snapshot("test3.png", fmt = "png", top = TRUE)
