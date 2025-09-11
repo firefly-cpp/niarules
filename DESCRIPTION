@@ -1,7 +1,7 @@
 Package: niarules
 Type: Package
 Title: Numerical Association Rule Mining using Population-Based Nature-Inspired Algorithms
-Version: 0.3.0
+Version: 0.3.1
 Authors@R: c(
     person("Iztok Jr.", "Fister", role = c("aut", "cre", "cph"), email = "iztok@iztok.space",	comment = c(ORCID = "0000-0002-6418-1272")),
     person("Gerlinde", "Emsenhuber", role = c("aut"), comment = c(ORCID = "0000-0001-7776-586X")),
