@@ -177,6 +177,8 @@ render_coral_rgl(
 
 ![coral-plot-example.png](man/figures/coral-plot-example.png)
 
+*Each “coral” groups all rules with the same RHS target **Rings = k** (title above each plot). Nodes are item bins/levels; edges connect prefix expansions as you move outward, so longer branches mean more specific antecedents. Encodings: **edge width ∝ lift**, **edge color = confidence** (cool→warm), **edge opacity ∝ support**; **node colors** are keyed by **item**. Rendered with `render_coral_rgl_experimental()` (theme `"studio"`) with slight height relief and jitter for readability.*
+
 ## 📚 Reference Papers
 
 Ideas are based on the following research papers:
