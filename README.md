@@ -135,7 +135,8 @@ write_association_rules_to_csv(de$arules, "Rules.csv", is_time_series = TRUE, ti
 ```R
 library(niarules)
 
-data_raw <- niarules::read_dataset("inst/extdata/Abalone.csv")
+#this file is located in the package under inst/extdata
+data_raw <- niarules::read_dataset(system.file("extdata", "Abalone.csv", package = "niarules"))
 features <- niarules::extract_feature_info(data_raw)
 d <- niarules::problem_dimension(features, is_time_series = FALSE)
 
