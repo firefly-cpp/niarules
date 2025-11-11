@@ -135,11 +135,13 @@ write_association_rules_to_csv(de$arules, "Rules.csv", is_time_series = TRUE, ti
 ```R
 library(niarules)
 
-#this file is located in the package under inst/extdata
 data_raw <- niarules::read_dataset(system.file("extdata", "Abalone.csv", package = "niarules"))
 features <- niarules::extract_feature_info(data_raw)
 d <- niarules::problem_dimension(features, is_time_series = FALSE)
 
+# we kept the rule mining step in this basic sample simple.
+# as a result, the mined ruleset will consist mostly of short rules, which will be reflected in the resulting plot.
+# for more complex rulesets, a longer mining process with differential_evolution is necessary  
 de <- niarules::differential_evolution(
   d        = d,
   np       = 30,
