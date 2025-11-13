@@ -62,11 +62,8 @@ install.packages("niarules")
 ```R
 library("niarules")
 
-# Define the dataset file
-dataset <- "Abalone.csv"
-
 # Read dataset
-data <- read_dataset(dataset)
+data <- read_dataset(system.file("extdata", "Abalone.csv", package = "niarules"))
 
 # Extract feature information
 features <- extract_feature_info(data)
