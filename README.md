@@ -179,6 +179,10 @@ render_coral_rgl(
 
 *Visualization of a ruleset mined onthe abalone dataset with arules::apriori; Each “coral” groups all rules with the same RHS target **Rings = k** (title above each plot). Nodes are item bins/levels; edges connect prefix expansions as you move outward, so longer branches mean more specific antecedents. Encodings: **edge width ∝ lift**, **edge color = confidence** (cool→warm), **edge opacity ∝ support**; **node colors** are keyed by **item**. Rendered with `render_coral_rgl_experimental()` (theme `"studio"`) with slight height relief and jitter for readability.*
 
+## 📄 Cite us
+
+Fister Jr., I., Emsenhuber, G., Plümer, J. H., Fister, I., & Holzinger, A. (2026). [niarules: Advancing interpretable machine learning through numerical association rule mining and 3D coral plot visualization](https://www.sciencedirect.com/science/article/pii/S2352711025004364). SoftwareX, 33, 102470.
+
 ## 📚 Reference Papers
 
 Ideas are based on the following research papers:
