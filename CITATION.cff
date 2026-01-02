@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the following reference."
+title: "niarules: Advancing interpretable machine learning through numerical association rule mining and 3D coral plot visualization"
+type: article
+authors:
+  - family-names: Fister
+    given-names: Iztok
+    suffix: Jr
+  - family-names: Emsenhuber
+    given-names: Gerlinde
+  - family-names: Plümer
+    given-names: Jan Hendrik
+  - family-names: Fister
+    given-names: Iztok
+  - family-names: Holzinger
+    given-names: Andreas
+journal: "SoftwareX"
+volume: 33
+pages: "102470"
+year: 2026
+publisher: "Elsevier"
